@@ -1,0 +1,25 @@
+{
+  "name": "playwright-qe-framework",
+  "version": "1.0.0",
+  "description": "Cross-browser Playwright tests for Automation Exercise",
+  "scripts": {
+    "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:list": "playwright test --list",
+    "report": "playwright show-report"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.6",
+    "dotenv": "^18.0.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

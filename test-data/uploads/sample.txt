@@ -1,0 +1,9 @@
+playwright-dev/
+├── fixtures/           # Playwright fixture definitions
+├── tests/              # Test specifications
+├── test-data/
+│   ├── uploads/        # Files used in upload tests
+│   │   └── sample.txt
+│   └── datasets/       # JSON, CSV, etc.
+├── playwright.config.ts
+└── tsconfig.json

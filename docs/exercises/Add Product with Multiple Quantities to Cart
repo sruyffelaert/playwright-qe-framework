@@ -1,0 +1,22 @@
+# Test: Add Product with Multiple Quantities to Cart
+
+Site: Automation Exercise
+
+Steps:
+1. Navigate to the Products page.
+2. Search for Blue Top.
+3. Open the Blue Top product details page.
+4. Change the product quantity to 4.
+5. Add the product to the cart.
+6. Navigate to the shopping cart.
+
+Assertions:
+- Exactly one product exists in the cart.
+- The product is Blue Top.
+- The product quantity is exactly 4.
+- The unit price is Rs. 500.
+- The line total is Rs. 2000.
+
+Approach: Write everything inline from scratch. No helper functions or page objects. The test must run independently of other tests.
+
+Skills: Form input manipulation, product detail navigation, quantity validation, and price calculation.
