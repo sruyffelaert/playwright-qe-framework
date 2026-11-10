@@ -25,10 +25,11 @@ export class LoginPage {
     });
   }
 
-  /** Verifies the page's distinct title is visible and correct. */
+  /** Verifies the title and preserves the original login test's document-load wait. */
   async assertLoaded() {
     await expect(this.heading).toBeVisible();
     await expect(this.heading).toHaveText('Login to your account');
+    await this.page.waitForLoadState('load');
   }
 
   async fillEmail(value: string) {

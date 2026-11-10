@@ -1,12 +1,12 @@
 # Page Object Model architecture
 
-Status: proposed architecture for future implementation. This iteration adds documentation only. The current tests remain the reference for existing behavior; none of these conventions changes their implementation or account configuration.
+Status: current POM design and conventions for future page families. The migrated tests preserve the original scenarios and account configuration.
 
 ## Repository context
 
-The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. The removal spec constructs `HomePage` directly from Playwright’s `page` and follows returned destination POMs; the other specs remain inline. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
+The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. All five specs construct `HomePage` directly from Playwright’s `page` and follow returned destination POMs. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
 
-`playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. CI has one worker and two retries; local runs have no retries by default. The configured `use.baseURL` is the application target for relative POM routes. The four remaining inline specs retain their original absolute URLs until they are migrated. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
+`playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. Both local and CI runs default to one worker. CI has two retries; local runs have no retries by default. The configured `use.baseURL` is the application target for relative POM routes. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
 
 ## Objectives and ownership
 
@@ -152,6 +152,8 @@ async assertLoaded() {
 There is no shared readiness helper or generic initialization model. Do not add default URL checks, jQuery checks, load-state checks, network waits, ready attributes, or checks of every form control to this method. If a particular page later needs additional loading verification, add that custom logic directly to that page’s `assertLoaded()` for its specific requirement. Other POMs do not inherit it automatically.
 
 The Contact Us page has an existing page-specific contract from the original test: after verifying its title, `ContactUsPage.assertLoaded()` waits for the document's `load` state before form interaction. Submission registers a five-second dialog wait before clicking, requires a `confirm` dialog with the exact message `Press OK to proceed!`, accepts it, and awaits the click. This method preserves the original action contract: it ends at `await clickPromise`, without calling `assertLoaded()` or returning a POM. The test then calls `validateSuccessMessage(expected)` to verify the visible, complete success text. A dialog assertion failure is left to Playwright teardown; do not add dismissal or recovery handling. This contract belongs only to the Contact Us POM and does not introduce shared loading logic.
+
+`LoginPage.assertLoaded()` likewise preserves the original login test’s explicit document-`load` wait after its title assertions and before credential entry. This is a page-specific contract, not a shared readiness mechanism.
 
 Current page markers:
 

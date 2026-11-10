@@ -55,7 +55,7 @@ docs/exercises/       Original scenario specifications
 playwright.config.ts  Browser projects, parallelism, retries, and reporting
 ```
 
-Tests use isolated browser contexts. The remove-from-cart spec constructs `HomePage` directly and follows returned POMs; the other specs retain their original inline implementation. POM routes use `use.baseURL` in `playwright.config.ts`. The shared fixture blocks advertising requests to reduce interference. The original configuration uses Playwright’s default worker count locally; CI uses one worker, rejects `test.only`, and retries failures twice. HTML reports are written to `playwright-report/`; traces are collected on the first retry. Generated results are ignored by Git. Use `npm run report` to open the HTML report.
+Tests use isolated browser contexts. All five specs construct `HomePage` directly and follow returned destination POMs. Locators, control interactions, and assertions belong to the page objects. POM routes use `use.baseURL` in `playwright.config.ts`. The shared fixture blocks advertising requests to reduce interference. Local and CI runs default to one worker to limit load on the public demo site. CI rejects `test.only` and retries failures twice. HTML reports are written to `playwright-report/`; traces are collected on the first retry. Generated results are ignored by Git. Use `npm run report` to open the HTML report.
 
 These are live end-to-end tests: internet access, a reachable demo site, installed Playwright browsers, and valid login credentials are required. Traces and reports can contain account or form data; review them before sharing.
 
