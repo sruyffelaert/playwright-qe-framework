@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { ProductDetailsPage } from '../product-details/product-details-page';
 import { CartPage } from '../cart/cart-page';
+import { ProductTile } from './products-product-tile';
 
 export class ProductsPage {
   private readonly page: Page;
@@ -8,7 +8,7 @@ export class ProductsPage {
   private readonly heading: Locator;
   private readonly searchInput: Locator;
   private readonly searchButton: Locator;
-  private readonly productCards: Locator;
+  private readonly productTiles: Locator;
   private readonly cartLink: Locator;
   private readonly continueShoppingButton: Locator;
 
@@ -18,7 +18,7 @@ export class ProductsPage {
     this.heading = page.locator('.features_items > h2');
     this.searchInput = page.getByRole('textbox', { name: 'Search Product', exact: true });
     this.searchButton = page.locator('#submit_search');
-    this.productCards = page.locator('.product-image-wrapper');
+    this.productTiles = page.locator('.product-image-wrapper');
     this.cartLink = page.getByRole('link', { name: ' Cart', exact: true });
     this.continueShoppingButton = page.getByRole('button', {
       name: 'Continue Shopping', exact: true,
@@ -51,34 +51,13 @@ export class ProductsPage {
     return this;
   }
 
-  /** Completes when the add confirmation is ready; caller chooses how to dismiss it. */
-  async clickAddToCart(productName: string) {
-    const product = this.productCard(productName);
-    await expect(product).toBeVisible();
-    await product.locator('.single-products').locator('.productinfo').locator('.btn').click();
+  async clickContinueShopping() {
     await expect(this.continueShoppingButton).toBeVisible();
     await expect(this.continueShoppingButton).toBeEnabled();
-  }
-
-  async clickContinueShopping() {
     await this.continueShoppingButton.click();
     await expect(this.continueShoppingButton).toBeHidden();
     await this.assertLoaded();
     return this;
-  }
-
-  async navigateToViewProduct(productName: string) {
-    const product = this.productCard(productName);
-    await expect(product).toBeVisible();
-    const link = product.locator('.choose').getByRole('link');
-    const href = await link.getAttribute('href');
-    const productPath = href && new URL(href, this.page.url()).pathname;
-    const match = productPath && /^\/product_details\/(\d+)$/.exec(productPath);
-    if (!match) throw new Error('View Product must link to a product-details route.');
-    const destination = new ProductDetailsPage(this.page, productName);
-    await link.click();
-    await destination.assertLoaded();
-    return destination;
   }
 
   async navigateToCart() {
@@ -98,9 +77,10 @@ export class ProductsPage {
     await expect(this.searchInput).toHaveValue(expected);
   }
 
-  private productCard(productName: string) {
-    // Same-commit quantity/removal specs use hasText. Strict actions/assertions
-    // reject ambiguous names instead of silently selecting the first match.
-    return this.productCards.filter({ hasText: productName });
+  productTile(productName: string) {
+    const tile = this.productTiles.filter({
+      has: this.page.locator('.productinfo').getByText(productName, { exact: true }),
+    });
+    return new ProductTile(tile, productName);
   }
 }

@@ -8,7 +8,8 @@ test('Add multiple quantities to cart', async ({ page }) => {
 
   await productsPage.fillSearch('Blue Top');
   await productsPage.clickSearch();
-  const productDetailsPage = await productsPage.navigateToViewProduct('Blue Top');
+  const blueTopTile = productsPage.productTile('Blue Top');
+  const productDetailsPage = await blueTopTile.navigateToViewProduct();
 
   await productDetailsPage.fillQuantity('4');
   await productDetailsPage.clickAddToCart();

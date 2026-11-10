@@ -8,12 +8,14 @@ test('Remove item from cart', async ({ page }) => {
 
   await productsPage.fillSearch('Blue Top');
   await productsPage.clickSearch();
-  await productsPage.clickAddToCart('Blue Top');
+  const blueTopTile = productsPage.productTile('Blue Top');
+  await blueTopTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
   await productsPage.fillSearch('Men Tshirt');
   await productsPage.clickSearch();
-  await productsPage.clickAddToCart('Men Tshirt');
+  const menTshirtTile = productsPage.productTile('Men Tshirt');
+  await menTshirtTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
   const cartPage = await productsPage.navigateToCart();

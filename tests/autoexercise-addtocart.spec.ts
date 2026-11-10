@@ -8,12 +8,14 @@ test('Add multiple items to shopping cart', async ({ page }) => {
 
   await productsPage.fillSearch('Blue Top');
   await productsPage.clickSearch();
-  await productsPage.clickAddToCart('Blue Top');
+  const blueTopTile = productsPage.productTile('Blue Top');
+  await blueTopTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
   await productsPage.fillSearch('Men tshirt');
   await productsPage.clickSearch();
-  await productsPage.clickAddToCart('Men Tshirt');
+  const menTshirtTile = productsPage.productTile('Men Tshirt');
+  await menTshirtTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
   const cartPage = await productsPage.navigateToCart();

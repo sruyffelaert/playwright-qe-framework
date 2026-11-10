@@ -4,7 +4,7 @@ Status: current POM design and conventions for future page families. The migrate
 
 ## Repository context
 
-The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. All five specs construct `HomePage` directly from Playwright’s `page` and follow returned destination POMs. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `CartProductRow` owns interactions and validations within an individual cart product row. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
+The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. All five specs construct `HomePage` directly from Playwright’s `page` and follow returned destination POMs. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `CartProductRow` owns interactions and validations within an individual cart product row; `ProductTile` owns an individual product-search tile. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
 
 `playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. Both local and CI runs default to one worker. CI has two retries; local runs have no retries by default. The configured `use.baseURL` is the application target for relative POM routes. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
 
@@ -36,7 +36,7 @@ Use composition. Do not begin with a universal base page, a generic element-wrap
 
 ## Naming and layout
 
-All filenames use kebab-case. Page-family filenames share the complete parent prefix so related POMs sort together. Classes use PascalCase: `Page` identifies page POMs, `Component` identifies a shared reusable widget, and a domain-specific subordinate may use its explicit name, such as `CartProductRow`. Filenames need not repeat those class suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
+All filenames use kebab-case. Page-family filenames share the complete parent prefix so related POMs sort together. Classes use PascalCase: `Page` identifies page POMs, `Component` identifies a shared reusable widget, and a domain-specific subordinate may use its explicit name, such as `CartProductRow` or `ProductTile`. Filenames need not repeat those class suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
 
 Proposed paths, not directories created in this iteration:
 
@@ -73,6 +73,27 @@ await blueTopRow.validateRemoved();
 ```
 
 Cart-level checks, such as `validateProductCount()`, stay on `CartPage`. Product-level actions, getters, and validators belong to the returned row POM, without forwarding wrappers on `CartPage`. Row objects hold lazy locators, so the same object can validate removal after its DOM row disappears. Obtaining a row is scoped object creation, not page navigation; it does not use a `navigateTo` method or navigate the browser.
+
+### Product-search tiles
+
+`ProductsPage.productTile(productName)` uses the same synchronous factory strategy as cart rows and returns a `ProductTile`. Selection uses an exact product-name text match within the tile’s base `.productinfo` area, without substring matching or selecting the first result. This also avoids confusing duplicate text in hover overlays with the base tile’s product name.
+
+`ProductTile` lives in `pages/products/products-product-tile.ts`. It receives the tile locator and expected product name. Its private locators reference only the tile’s image, name, price, Add to cart button, and View Product link. It owns field getters, individual validators, `clickAddToCart()`, and `navigateToViewProduct()`. The latter obtains the owning browser page from the tile locator, constructs the product-details POM, verifies its title, and returns it. It has no `open()` method.
+
+```ts
+const blueTopTile = productsPage.productTile('Blue Top');
+await blueTopTile.clickAddToCart();
+await productsPage.clickContinueShopping();
+```
+
+The cart confirmation dialog is outside the tile DOM, so it remains owned by `ProductsPage`. Its Continue Shopping action verifies the confirmation control is visible and enabled, dismisses it, and verifies dismissal. Search controls, the page title, and navigation to the cart also remain on `ProductsPage`. There are no tile-action forwarding wrappers on the parent.
+
+To view details, use the selected tile directly:
+
+```ts
+const blueTopTile = productsPage.productTile('Blue Top');
+const detailsPage = await blueTopTile.navigateToViewProduct();
+```
 
 ## Locators and constructors
 
@@ -184,7 +205,7 @@ Current page markers:
 | Login | Form heading: `Login to your account` |
 | Contact Us | Page heading: `Contact Us` |
 
-A dynamic page receives the expected title from the interaction that selects it. For example, `navigateToViewProduct(productName)` constructs the product-details POM with that product name so `assertLoaded()` can check it exactly; it must not accept any non-empty heading as sufficient.
+A dynamic page receives the expected title from the interaction that selects it. For example, `ProductsPage.productTile(productName)` passes the exact expected name to its tile POM, whose `navigateToViewProduct()` constructs the product-details POM with that name so `assertLoaded()` can check it exactly; it must not accept any non-empty heading as sufficient.
 
 Only `HomePage.open()` performs direct entry: it navigates to `/` using Playwright’s configured `use.baseURL`, awaits `assertLoaded()`, and returns `this`. Other POMs expose `assertLoaded()` and their interactions, but no `open()` method. Constructors accept the existing Playwright page, not a hardcoded host or a second base-URL argument. Navigation methods await the destination’s page-loaded verification before returning that POM. Native action auto-waiting and specific interaction handling, such as accepting a confirmation dialog, remain part of the owning page’s action methods.
 
