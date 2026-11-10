@@ -2,25 +2,16 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export class CartPage {
   private readonly page: Page;
-  private readonly path: string;
   private readonly heading: Locator;
   private readonly cartContent: Locator;
-  private readonly rows: Locator;
   private readonly productRows: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.path = '/view_cart';
     this.heading = page.locator('.breadcrumb .active');
     this.cartContent = page.locator('#cart_items');
-    this.rows = page.getByRole('row');
-    this.productRows = this.rows.filter({ has: page.locator('.cart_quantity') });
-  }
-
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
+    this.productRows = this.cartContent.getByRole('row')
+      .filter({ has: page.locator('.cart_quantity') });
   }
 
   /** Verifies the page's distinct title is visible and correct. */
@@ -30,10 +21,7 @@ export class CartPage {
   }
 
   async removeProduct(productName: string) {
-    await this.validateProductVisible(productName);
-    const row = this.productRow(productName);
-    await row.getByRole('cell').and(row.locator('.cart_delete'))
-      .locator('.cart_quantity_delete').click();
+    await this.productRow(productName).locator('.cart_quantity_delete').click();
     await this.validateProductRemoved(productName);
   }
 
@@ -43,9 +31,7 @@ export class CartPage {
   }
 
   async validateProductVisible(productName: string) {
-    const row = this.productRow(productName);
-    const name = row.getByRole('link', { name: productName, exact: true });
-    await expect(row).toBeVisible();
+    const name = this.productRow(productName).getByRole('link', { name: productName, exact: true });
     await expect(name).toBeVisible();
     await expect(name).toHaveText(productName);
   }
@@ -55,69 +41,62 @@ export class CartPage {
   }
 
   async validateProductPrice(productName: string, expected: string) {
-    await this.validateProductVisible(productName);
     const price = this.productPrice(productName);
     await expect(price).toBeVisible();
     await expect(price).toHaveText(expected);
   }
 
   async validateProductQuantity(productName: string, expected: number) {
-    await this.validateProductVisible(productName);
     const quantity = this.productQuantity(productName);
     await expect(quantity).toBeVisible();
     await expect(quantity).toHaveText(String(expected));
   }
 
   async validateProductTotal(productName: string, expected: string) {
-    await this.validateProductVisible(productName);
     const total = this.productTotal(productName);
     await expect(total).toBeVisible();
     await expect(total).toHaveText(expected);
   }
 
   async getProductName(productName: string) {
-    await this.validateProductVisible(productName);
-    return (await this.productRow(productName)
-      .getByRole('link', { name: productName, exact: true }).innerText()).trim();
+    const name = this.productRow(productName).getByRole('link', { name: productName, exact: true });
+    await expect(name).toBeVisible();
+    return (await name.innerText()).trim();
   }
 
   async getProductUnitPrice(productName: string) {
-    await this.validateProductVisible(productName);
     const price = this.productPrice(productName);
     await expect(price).toBeVisible();
     return (await price.innerText()).trim();
   }
 
   async getProductQuantity(productName: string) {
-    await this.validateProductVisible(productName);
     const quantity = this.productQuantity(productName);
     await expect(quantity).toBeVisible();
     return (await quantity.innerText()).trim();
   }
 
   async getProductTotal(productName: string) {
-    await this.validateProductVisible(productName);
     const total = this.productTotal(productName);
     await expect(total).toBeVisible();
     return (await total.innerText()).trim();
   }
 
   private productRow(productName: string) {
-    return this.rows.filter({ hasText: productName });
+    return this.productRows.filter({
+      has: this.page.getByRole('link', { name: productName, exact: true }),
+    });
   }
 
   private productPrice(productName: string) {
-    const row = this.productRow(productName);
-    return row.getByRole('cell').and(row.locator('.cart_price'));
+    return this.productRow(productName).locator('.cart_price');
   }
 
   private productQuantity(productName: string) {
-    const row = this.productRow(productName);
-    return row.getByRole('cell').and(row.locator('.cart_quantity'));
+    return this.productRow(productName).locator('.cart_quantity');
   }
 
   private productTotal(productName: string) {
-    const row = this.productRow(productName);
-    return row.getByRole('cell').and(row.locator('.cart_total'));
+    return this.productRow(productName).locator('.cart_total');
   }
 }

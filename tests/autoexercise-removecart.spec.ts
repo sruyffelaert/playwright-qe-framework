@@ -4,7 +4,7 @@ import { HomePage } from '../pages/home/home-page';
 test('Remove item from cart', async ({ page }) => {
   const homePage = new HomePage(page);
   await homePage.open();
-  const productsPage = await homePage.clickProducts();
+  const productsPage = await homePage.navigateToProducts();
 
   await productsPage.fillSearch('Blue Top');
   await productsPage.clickSearch();
@@ -16,7 +16,7 @@ test('Remove item from cart', async ({ page }) => {
   await productsPage.clickAddToCart('Men Tshirt');
   await productsPage.clickContinueShopping();
 
-  const cartPage = await productsPage.clickCart();
+  const cartPage = await productsPage.navigateToCart();
 
   await cartPage.validateProductCount(2);
   await cartPage.validateProductPrice('Blue Top', 'Rs. 500');

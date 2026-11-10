@@ -3,7 +3,6 @@ import { HomePage } from '../home/home-page';
 
 export class LoginPage {
   private readonly page: Page;
-  private readonly path: string;
   private readonly heading: Locator;
   private readonly emailInput: Locator;
   private readonly passwordInput: Locator;
@@ -14,7 +13,6 @@ export class LoginPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.path = '/login';
     this.heading = page.getByRole('heading', { name: 'Login to your account', exact: true });
     this.emailInput = page.locator('form').filter({ hasText: 'Login' })
       .getByPlaceholder('Email Address', { exact: true });
@@ -25,12 +23,6 @@ export class LoginPage {
     this.loggedInUser = page.locator('a').filter({
       hasText: 'Logged in as', has: page.locator('.fa-user'),
     });
-  }
-
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
   }
 
   /** Verifies the page's distinct title is visible and correct. */
@@ -48,7 +40,7 @@ export class LoginPage {
   }
 
   /** Valid-login navigation returns the verified home page; user validation stays explicit. */
-  async clickLogin() {
+  async navigateToLogin() {
     await this.loginButton.click();
     const destination = new HomePage(this.page);
     await destination.assertLoaded();

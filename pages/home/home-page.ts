@@ -41,35 +41,35 @@ export class HomePage {
     await expect(this.heading).toHaveText('Features Items');
   }
 
-  async clickProducts() {
+  async navigateToProducts() {
     await this.productsLink.click();
     const destination = new ProductsPage(this.page);
     await destination.assertLoaded();
     return destination;
   }
 
-  async clickCart() {
+  async navigateToCart() {
     await this.cartLink.click();
     const destination = new CartPage(this.page);
     await destination.assertLoaded();
     return destination;
   }
 
-  async clickContactUs() {
+  async navigateToContactUs() {
     await this.contactUsLink.click();
     const destination = new ContactUsPage(this.page);
     await destination.assertLoaded();
     return destination;
   }
 
-  async clickSignupLogin() {
+  async navigateToSignupLogin() {
     await this.signupLoginLink.click();
     const destination = new LoginPage(this.page);
     await destination.assertLoaded();
     return destination;
   }
 
-  async clickLogout() {
+  async navigateToLogout() {
     await this.logoutLink.click();
     const destination = new LoginPage(this.page);
     await destination.assertLoaded();

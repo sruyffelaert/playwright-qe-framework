@@ -32,17 +32,17 @@ Use multiline bodies for every constructor and method, including single-command 
 
 Order a class as private fields, synchronous constructor, readiness/navigation, interactions, getters, validators, then private helpers. Use a PascalCase class and camelCase members. Each locator has a purpose; do not predefine an entire DOM inventory. Public action and validation methods complete asynchronously; getters return typed facts. Every navigation method returns its destination POM only after awaiting that object’s `assertLoaded()`. Let TypeScript infer return types. Never expose `Locator`, `Page`, or `ElementHandle`; a parent may expose readonly subordinate POMs with their own functional methods. Constructor dependencies are an internal composition boundary rather than a test-facing locator API.
 
-Use `fillX`/`getX`/`validateX` for editable values where all three operations make sense. Use `checkX`/`uncheckX`/`isXChecked`/`validateXChecked` for checkboxes. Use `selectX`/`getX`/`validateX` for a selection. Use `clickX` for a button, and validate its relevant state through a clearly named method. Provide getters when they expose a useful fact, not merely to satisfy symmetry.
+Use `fillX`/`getX`/`validateX` for editable values where all three operations make sense. Use `checkX`/`uncheckX`/`isXChecked`/`validateXChecked` for checkboxes. Use `selectX`/`getX`/`validateX` for a selection. Use `navigateTo<Destination>` only when the method returns a different destination POM. A method returning `this` or no POM keeps its action name, such as `clickSearch()` or `clickContinueShopping()`, even if it changes the URL or reloads the current page. Only `HomePage` defines `open()`; do not add it to destination or subordinate POMs. Use `clickX` for current-page control actions, and validate their relevant state through clearly named methods. Provide getters when they expose a useful fact, not merely to satisfy symmetry.
 
 `assertLoaded()` currently verifies only that a major, distinct page or section element is visible and has the complete expected title. Each POM owns this method. There is no shared readiness helper, required initialization marker, URL assertion, jQuery check, or default network/load-state wait. Additional loading checks may be custom-added directly to an individual POM’s `assertLoaded()` later if that page requires them.
 
-`open()` navigates, awaits `assertLoaded()`, and returns `this`. Every navigation method awaits the destination’s `assertLoaded()` and returns that POM. A same-page reload returns `this` after its own title check; opening a functional tab returns its verified subordinate. Non-navigating actions and individual business validators keep their separate responsibilities.
+`HomePage.open()` navigates, awaits `assertLoaded()`, and returns `this`. Other POMs have no `open()` method and are obtained from navigation methods. Every navigation method awaits the destination’s `assertLoaded()` and returns that POM. A same-POM reload may return `this` after its own title check, while keeping an action name rather than `navigateTo`; opening a functional tab returns its verified subordinate. Non-navigating actions and individual business validators keep their separate responsibilities.
 
 Validation methods use native retrying assertions internally. The example's visible checks already establish attachment, so it omits redundant attachment assertions. A hidden-but-mounted contract instead needs both attachment and hidden checks. A removed contract needs absence. Full string text matching below follows Playwright's whitespace normalization; a separately named containing validator is an intentional weaker contract. See [Playwright locator assertions](https://playwright.dev/docs/api/class-locatorassertions).
 
 ## Illustrative TypeScript template
 
-The fictional UI supplies a `Sample editor` heading and a `Preferences` heading inside a scoped preferences panel. Each owning POM verifies only its heading’s visibility and complete text. The constructor accepts Playwright’s `page`; relative navigation uses `use.baseURL` from `playwright.config.ts`.
+The fictional UI supplies a `Sample editor` heading and a `Preferences` heading inside a scoped preferences panel. Each owning POM verifies only its heading’s visibility and complete text. The constructor accepts Playwright’s `page`. Tests enter through `HomePage.open()`, which uses `use.baseURL` from `playwright.config.ts`, then receive this destination POM through navigation.
 
 The preferences panel is a subordinate POM exposed through a readonly `preferences` property. It owns its controls and individual validations. Both classes are shown together for readability; future files would be `sample-editor.ts` and `sample-editor-preferences.ts` in the same page-family folder. This example keeps the panel always visible. A tabbed variant would let the parent activate the tab and await the subordinate’s title check before returning it.
 
@@ -90,8 +90,6 @@ class SampleEditorPreferencesPage {
 }
 
 export class SampleEditorPage {
-  private readonly page: Page;
-  private readonly path: string;
   private readonly root: Locator;
   private readonly heading: Locator;
   private readonly emailInput: Locator;
@@ -102,8 +100,6 @@ export class SampleEditorPage {
 
   constructor(page: Page) {
     // Synchronous wiring only: no navigation, assertions, or async work.
-    this.page = page;
-    this.path = '/sample-editor';
     this.root = page.getByTestId('sample-editor');
     this.heading = this.root.getByRole('heading', {
       name: 'Sample editor', exact: true,
@@ -121,12 +117,6 @@ export class SampleEditorPage {
     this.preferences = new SampleEditorPreferencesPage(
       this.root.getByTestId('sample-preferences'),
     );
-  }
-
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
   }
 
   async assertLoaded() {
@@ -195,26 +185,29 @@ export class SampleEditorPage {
 For a tabbed variant, the parent owns the tab locator and exposes the section POM. Its navigation method follows this contract:
 
 ```ts
-async openPreferences() {
+async navigateToPreferences() {
   await this.preferencesTab.click();
   await this.preferences.assertLoaded();
   return this.preferences;
 }
 ```
 
-The test uses `const preferences = await editor.openPreferences()` and calls `preferences.checkTerms()` or `preferences.validateTermsChecked(true)`. For a separate route, create the destination POM using the existing browser page and its configured base URL, await its `assertLoaded()`, and return it. The constructor still performs no asynchronous work. A failed readiness check must propagate instead of returning an unverified destination.
+The test uses `const preferences = await editor.navigateToPreferences()` and calls `preferences.checkTerms()` or `preferences.validateTermsChecked(true)`. For a separate route, create the destination POM using the existing browser page and its configured base URL, await its `assertLoaded()`, and return it. The constructor still performs no asynchronous work. A failed readiness check must propagate instead of returning an unverified destination.
 
 ## Direct use from a test
 
-Construct the initial page POM directly and call `open()`. Playwright’s built-in browser context carries the configured base URL. Do not introduce a page-object fixture. The parent constructs its subordinate `preferences` POM synchronously, and navigation methods return verified destination POMs. Browser and context cleanup remains with Playwright.
+The following fictional flow assumes a `navigateToSampleEditor()` method on the home page; it is an illustrative destination, not a method to add to the current application.
+
+Construct `HomePage` directly and call its `open()` method. No other POM defines `open()`. Playwright’s built-in browser context carries the configured base URL. Do not introduce a page-object fixture. The parent constructs its subordinate `preferences` POM synchronously, and navigation methods return verified destination POMs. Browser and context cleanup remains with Playwright.
 
 ```ts
 import { test } from '@fixtures/fixtures';
-import { SampleEditorPage } from '../pages/sample-editor/sample-editor';
+import { HomePage } from '../pages/home/home-page';
 
 test('edits the form', async ({ page }) => {
-  const editor = new SampleEditorPage(page);
-  await editor.open();
+  const homePage = new HomePage(page);
+  await homePage.open();
+  const editor = await homePage.navigateToSampleEditor();
   await editor.fillEmail('reader@example.test');
   await editor.validateEmail('reader@example.test');
   await editor.selectCountry('CA');
@@ -230,12 +223,14 @@ test('edits the form', async ({ page }) => {
 
 ## Review before adopting a concrete page
 
+- Verify only `HomePage` defines `open()`; destination and subordinate POMs retain their own `assertLoaded()` without direct-entry methods.
 - Verify every constructor and method uses a multiline body, one command per line, a closing brace on its own line, and one blank line between methods.
 - Identify functional responsibilities and deliberate decomposition before implementing selectors; sharing a URL does not require sharing a class.
 - Verify each subordinate owns its locators, interactions, getters, and one-method-per-target validation contracts.
 - Verify parent/subordinate filenames share the complete parent prefix and tests can reach exposed sections through readonly functional properties.
 - Verify its locators are private, scoped, unique, and actually used.
 - Give each POM its own `assertLoaded()` that checks a distinct title is visible and exactly correct. Keep any future custom loading checks local to that POM; do not introduce a shared readiness model.
+- Verify `navigateTo` is used only for methods returning a different destination POM; methods returning `this` or no POM keep action names.
 - State which actions navigate, open dialogs, or complete asynchronously. Every navigation method must await destination readiness and return that verified POM, including same-page reloads and subordinate navigation.
 - Ensure every ordinary validator checks the complete expected state and any required visibility; partial or absent-state contracts must be explicitly named.
 - Preserve native retries and diagnostics; getters must not replace UI validators.

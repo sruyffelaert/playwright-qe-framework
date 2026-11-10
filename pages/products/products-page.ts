@@ -25,12 +25,6 @@ export class ProductsPage {
     });
   }
 
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
-  }
-
   /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
     const expectedTitle = new URL(this.page.url()).searchParams.has('search')
@@ -73,7 +67,7 @@ export class ProductsPage {
     return this;
   }
 
-  async clickViewProduct(productName: string) {
+  async navigateToViewProduct(productName: string) {
     const product = this.productCard(productName);
     await expect(product).toBeVisible();
     const link = product.locator('.choose').getByRole('link');
@@ -81,13 +75,13 @@ export class ProductsPage {
     const productPath = href && new URL(href, this.page.url()).pathname;
     const match = productPath && /^\/product_details\/(\d+)$/.exec(productPath);
     if (!match) throw new Error('View Product must link to a product-details route.');
-    const destination = new ProductDetailsPage(this.page, Number(match[1]), productName);
+    const destination = new ProductDetailsPage(this.page, productName);
     await link.click();
     await destination.assertLoaded();
     return destination;
   }
 
-  async clickCart() {
+  async navigateToCart() {
     await this.cartLink.click();
     const destination = new CartPage(this.page);
     await destination.assertLoaded();

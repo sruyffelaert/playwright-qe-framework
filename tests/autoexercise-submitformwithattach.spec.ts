@@ -5,7 +5,7 @@ import { HomePage } from '../pages/home/home-page';
 test('Submit contact form with attachment', async ({ page }) => {
   const homePage = new HomePage(page);
   await homePage.open();
-  const contactUsPage = await homePage.clickContactUs();
+  const contactUsPage = await homePage.navigateToContactUs();
 
   await contactUsPage.validateHeading('Contact Us');
   await contactUsPage.fillName('Joe Pelky');

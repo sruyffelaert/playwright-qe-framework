@@ -3,7 +3,6 @@ import { CartPage } from '../cart/cart-page';
 
 export class ProductDetailsPage {
   private readonly page: Page;
-  private readonly path: string;
   private readonly heading: Locator;
   private readonly productName: string;
   private readonly quantityInput: Locator;
@@ -11,9 +10,8 @@ export class ProductDetailsPage {
   private readonly continueShoppingButton: Locator;
   private readonly cartLink: Locator;
 
-  constructor(page: Page, productId: number, productName: string) {
+  constructor(page: Page, productName: string) {
     this.page = page;
-    this.path = `/product_details/${productId}`;
     this.productName = productName;
     this.heading = page.locator('.product-information').getByRole('heading', { level: 2 });
     this.quantityInput = page.locator('#quantity');
@@ -22,12 +20,6 @@ export class ProductDetailsPage {
       name: 'Continue Shopping', exact: true,
     });
     this.cartLink = page.getByRole('link', { name: ' Cart', exact: true });
-  }
-
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
   }
 
   /** Verifies the page's distinct title is visible and correct. */
@@ -54,7 +46,7 @@ export class ProductDetailsPage {
     return this;
   }
 
-  async clickCart() {
+  async navigateToCart() {
     await this.cartLink.click();
     const destination = new CartPage(this.page);
     await destination.assertLoaded();

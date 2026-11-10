@@ -2,7 +2,6 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export class ContactUsPage {
   private readonly page: Page;
-  private readonly path: string;
   private readonly heading: Locator;
   private readonly nameInput: Locator;
   private readonly emailInput: Locator;
@@ -14,7 +13,6 @@ export class ContactUsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.path = '/contact_us';
     this.heading = page.getByRole('heading', { name: 'Contact Us', exact: true });
     this.nameInput = page.getByRole('textbox', { name: 'Name', exact: true });
     this.emailInput = page.getByRole('textbox', { name: 'Email', exact: true });
@@ -23,12 +21,6 @@ export class ContactUsPage {
     this.fileInput = page.getByRole('button', { name: 'Choose File', exact: true });
     this.submitButton = page.getByRole('button', { name: 'Submit', exact: true });
     this.successMessage = page.locator('.status').and(page.locator('.alert-success'));
-  }
-
-  async open() {
-    await this.page.goto(this.path);
-    await this.assertLoaded();
-    return this;
   }
 
   /** Verifies the title and the original contact form's document-load contract. */

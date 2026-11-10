@@ -98,9 +98,11 @@ Action methods wait for their documented immediate completion, such as an add-to
 
 ### Navigation return contract
 
+Reserve `navigateTo<Destination>` for methods that return a different destination POM, such as `navigateToProducts()` or `navigateToCart()`. The name describes navigation intent without prescribing its mechanism. Methods that return `this`, return no POM, or act on the current page retain action names such as `clickSearch()`, `clickContinueShopping()`, `clickAddToCart()`, and `clickSubmitAndAcceptConfirmation()`. A URL change or browser reload alone does not justify the `navigateTo` prefix. Only `HomePage` defines `open()`; all other POMs are reached through navigation methods.
+
 Every navigation method must perform the transition, await the destination POM’s `assertLoaded()`, and return that verified POM. This applies to links, valid-login redirects, navigation after form submission, and opening subordinate tabs or panels. A method must reject if the expected destination fails readiness; returning an unchecked object is not allowed. Tests should use the returned object without needing an additional readiness call.
 
-`open()` verifies and returns `this`. Navigation to a different page creates its POM using the same Playwright page, whose browser context carries the configured `baseURL`, verifies it, then returns it. Navigation that reloads the current page, such as product search, verifies the resulting state and returns `this`. Opening a functional subordinate returns that subordinate after its own readiness check. Ordinary field edits, validations, and AJAX actions that do not navigate need no page-object return value.
+`HomePage.open()` verifies and returns `this`; destination POMs do not define `open()`. Navigation to a different page creates its POM using the same Playwright page, whose browser context carries the configured `baseURL`, verifies it, then returns it. A same-POM action, such as product search, may verify its resulting state and return `this`, but retains an action name rather than using `navigateTo`. Opening a functional subordinate returns that subordinate after its own readiness check. Ordinary field edits, validations, and AJAX actions that do not navigate need no page-object return value.
 
 Page-loaded verification uses a distinct title that remains valid for the destination state. For example, the Contact Us title remains visible after submission, so there is no need for a shared form-versus-confirmation loading policy. Checking the title does not replace the test’s explicit validation of confirmation text or the authenticated user. A positive-login navigation method expects the home page; a future negative-login scenario needs a separately named method with a login-error destination contract rather than silently returning either page.
 
@@ -162,9 +164,9 @@ Current page markers:
 | Login | Form heading: `Login to your account` |
 | Contact Us | Page heading: `Contact Us` |
 
-A dynamic page receives the expected title from the interaction that selects it. For example, `clickViewProduct(productName)` constructs the product-details POM with that product name so `assertLoaded()` can check it exactly; it must not accept any non-empty heading as sufficient.
+A dynamic page receives the expected title from the interaction that selects it. For example, `navigateToViewProduct(productName)` constructs the product-details POM with that product name so `assertLoaded()` can check it exactly; it must not accept any non-empty heading as sufficient.
 
-`open()` navigates to its relative route using Playwright’s configured `use.baseURL`, awaits its own `assertLoaded()`, and returns `this`. Constructors accept the existing Playwright page, not a hardcoded host or a second base-URL argument. Navigation methods await the destination’s page-loaded verification before returning that POM. Native action auto-waiting and specific interaction handling, such as accepting a confirmation dialog, remain part of the owning page’s action methods.
+Only `HomePage.open()` performs direct entry: it navigates to `/` using Playwright’s configured `use.baseURL`, awaits `assertLoaded()`, and returns `this`. Other POMs expose `assertLoaded()` and their interactions, but no `open()` method. Constructors accept the existing Playwright page, not a hardcoded host or a second base-URL argument. Navigation methods await the destination’s page-loaded verification before returning that POM. Native action auto-waiting and specific interaction handling, such as accepting a confirmation dialog, remain part of the owning page’s action methods.
 
 ## Business validation boundaries
 
@@ -183,7 +185,7 @@ import { HomePage } from '../pages/home/home-page';
 test('opens products', async ({ page }) => {
   const homePage = new HomePage(page);
   await homePage.open();
-  const productsPage = await homePage.clickProducts();
+  const productsPage = await homePage.navigateToProducts();
   await productsPage.validateSearch('');
 });
 ```
