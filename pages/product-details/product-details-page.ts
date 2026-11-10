@@ -36,7 +36,9 @@ export class ProductDetailsPage {
     await expect(this.heading).toHaveText(this.productName);
   }
 
-  async fillQuantity(value: string) { await this.quantityInput.fill(value); }
+  async fillQuantity(value: string) {
+    await this.quantityInput.fill(value);
+  }
 
   /** Completes when the cart confirmation is ready for interaction. */
   async clickAddToCart() {

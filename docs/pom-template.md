@@ -28,6 +28,8 @@ The parent owns section activation such as opening a tab. That navigation action
 
 ## Standard structure and method rules
 
+Use multiline bodies for every constructor and method, including single-command methods. Put the declaration and opening brace on the first line, start the content on the next line, put each command on its own line, and place the closing brace on its own line aligned with the declaration. Indent content two spaces inside the method and separate methods with one blank line. Follow the [architecture's method-formatting convention](pom-architecture.md#method-formatting).
+
 Order a class as private fields, synchronous constructor, readiness/navigation, interactions, getters, validators, then private helpers. Use a PascalCase class and camelCase members. Each locator has a purpose; do not predefine an entire DOM inventory. Public action and validation methods complete asynchronously; getters return typed facts. Every navigation method returns its destination POM only after awaiting that object’s `assertLoaded()`. Let TypeScript infer return types. Never expose `Locator`, `Page`, or `ElementHandle`; a parent may expose readonly subordinate POMs with their own functional methods. Constructor dependencies are an internal composition boundary rather than a test-facing locator API.
 
 Use `fillX`/`getX`/`validateX` for editable values where all three operations make sense. Use `checkX`/`uncheckX`/`isXChecked`/`validateXChecked` for checkboxes. Use `selectX`/`getX`/`validateX` for a selection. Use `clickX` for a button, and validate its relevant state through a clearly named method. Provide getters when they expose a useful fact, not merely to satisfy symmetry.
@@ -228,6 +230,7 @@ test('edits the form', async ({ page }) => {
 
 ## Review before adopting a concrete page
 
+- Verify every constructor and method uses a multiline body, one command per line, a closing brace on its own line, and one blank line between methods.
 - Identify functional responsibilities and deliberate decomposition before implementing selectors; sharing a URL does not require sharing a class.
 - Verify each subordinate owns its locators, interactions, getters, and one-method-per-target validation contracts.
 - Verify parent/subordinate filenames share the complete parent prefix and tests can reach exposed sections through readonly functional properties.

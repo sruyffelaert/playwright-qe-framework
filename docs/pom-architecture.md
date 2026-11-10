@@ -64,6 +64,28 @@ Do not expose `Locator`, `Page`, `ElementHandle`, selector strings, a general `f
 
 Constructors do not navigate, await, install event listeners, assert readiness, read credentials, or create test data. Define only selectors needed by actual behavior. Dynamic selectors may be constructed in a private method when their business key is known, with exact identity and escaping handled internally. Do not cache element handles, DOM snapshots, or an `isLoaded` flag across navigation.
 
+## Method formatting
+
+Use the same multiline format for every constructor and method:
+
+- Put the method declaration and opening brace on the first line.
+- Start the method content on the following line, indented two spaces inside the method.
+- Put each command on its own line.
+- Put the closing brace on its own line, aligned with the method declaration.
+- Separate methods with one blank line.
+- Expand even single-command methods; do not use one-line method bodies.
+
+```ts
+async fillEmail(value: string) {
+  await this.emailInput.fill(value);
+}
+
+async validateEmail(expected: string) {
+  await expect(this.emailInput).toBeVisible();
+  await expect(this.emailInput).toHaveValue(expected);
+}
+```
+
 ## Interactions and retrieval
 
 Use typed asynchronous methods for ordinary actions and let TypeScript infer their return types. Prefer `fillEmail(value: string)`, `selectCountry(code: string)`, `checkTerms()`, `uncheckTerms()`, and `chooseDeliveryMethod(method)` over generic `setElement()` or boolean-heavy action methods. Native `fill`, `check`, `uncheck`, `selectOption`, and `click` retain their auto-waiting behavior; avoid forced actions or JavaScript clicks as defaults. Playwright checks actionability for supported actions; keep that native behavior. See [auto-waiting](https://playwright.dev/docs/actionability).
@@ -78,7 +100,7 @@ Action methods wait for their documented immediate completion, such as an add-to
 
 Every navigation method must perform the transition, await the destination POM’s `assertLoaded()`, and return that verified POM. This applies to links, valid-login redirects, navigation after form submission, and opening subordinate tabs or panels. A method must reject if the expected destination fails readiness; returning an unchecked object is not allowed. Tests should use the returned object without needing an additional readiness call.
 
-`open()` verifies and returns `this`. Navigation to a different page creates its POM using the same Playwright page, whose browser context carries the configured `baseURL`, verifies it, then returns it. Navigation that reloads the current page, such as product search or contact submission, verifies the resulting state and returns `this`. Opening a functional subordinate returns that subordinate after its own readiness check. Ordinary field edits, validations, and AJAX actions that do not navigate need no page-object return value.
+`open()` verifies and returns `this`. Navigation to a different page creates its POM using the same Playwright page, whose browser context carries the configured `baseURL`, verifies it, then returns it. Navigation that reloads the current page, such as product search, verifies the resulting state and returns `this`. Opening a functional subordinate returns that subordinate after its own readiness check. Ordinary field edits, validations, and AJAX actions that do not navigate need no page-object return value.
 
 Page-loaded verification uses a distinct title that remains valid for the destination state. For example, the Contact Us title remains visible after submission, so there is no need for a shared form-versus-confirmation loading policy. Checking the title does not replace the test’s explicit validation of confirmation text or the authenticated user. A positive-login navigation method expects the home page; a future negative-login scenario needs a separately named method with a login-error destination contract rather than silently returning either page.
 
@@ -127,7 +149,7 @@ async assertLoaded() {
 
 There is no shared readiness helper or generic initialization model. Do not add default URL checks, jQuery checks, load-state checks, network waits, ready attributes, or checks of every form control to this method. If a particular page later needs additional loading verification, add that custom logic directly to that page’s `assertLoaded()` for its specific requirement. Other POMs do not inherit it automatically.
 
-The Contact Us page has an existing page-specific contract from the original test: after verifying its title, `ContactUsPage.assertLoaded()` waits for the document's `load` state before form interaction. Submission registers a five-second dialog wait before clicking, requires a `confirm` dialog with the exact message `Press OK to proceed!`, and accepts it. `validateSuccessMessage(expected)` separately verifies the visible, complete success text. This contract belongs only to the Contact Us POM and does not introduce shared loading logic.
+The Contact Us page has an existing page-specific contract from the original test: after verifying its title, `ContactUsPage.assertLoaded()` waits for the document's `load` state before form interaction. Submission registers a five-second dialog wait before clicking, requires a `confirm` dialog with the exact message `Press OK to proceed!`, accepts it, and awaits the click. This method preserves the original action contract: it ends at `await clickPromise`, without calling `assertLoaded()` or returning a POM. The test then calls `validateSuccessMessage(expected)` to verify the visible, complete success text. A dialog assertion failure is left to Playwright teardown; do not add dismissal or recovery handling. This contract belongs only to the Contact Us POM and does not introduce shared loading logic.
 
 Current page markers:
 

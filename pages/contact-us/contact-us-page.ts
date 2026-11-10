@@ -33,15 +33,27 @@ export class ContactUsPage {
 
   /** Verifies the title and the original contact form's document-load contract. */
   async assertLoaded() {
+    await this.page.waitForLoadState('load');
     await expect(this.heading).toBeVisible();
     await expect(this.heading).toHaveText('Contact Us');
-    await this.page.waitForLoadState('load');
   }
 
-  async fillName(value: string) { await this.nameInput.fill(value); }
-  async fillEmail(value: string) { await this.emailInput.fill(value); }
-  async fillSubject(value: string) { await this.subjectInput.fill(value); }
-  async fillMessage(value: string) { await this.messageInput.fill(value); }
+  async fillName(value: string) {
+    await this.nameInput.fill(value);
+  }
+
+  async fillEmail(value: string) {
+    await this.emailInput.fill(value);
+  }
+
+  async fillSubject(value: string) {
+    await this.subjectInput.fill(value);
+  }
+
+  async fillMessage(value: string) {
+    await this.messageInput.fill(value);
+  }
+
   async uploadAttachment(filePath: string) {
     await this.fileInput.setInputFiles(filePath);
   }
@@ -52,21 +64,14 @@ export class ContactUsPage {
    * Caller validates the resulting success text explicitly.
    */
   async clickSubmitAndAcceptConfirmation() {
-    const confirmation = this.page.waitForEvent('dialog', { timeout: 5_000 })
-      .then(async dialog => {
-        try {
-          expect(dialog.type()).toBe('confirm');
-          expect(dialog.message()).toBe('Press OK to proceed!');
-        } catch (error) {
-          // Release the browser even when the contract fails; retain that error.
-          await dialog.dismiss().catch(() => undefined);
-          throw error;
-        }
-        await dialog.accept();
-      });
-    await Promise.all([confirmation, this.submitButton.click()]);
-    await this.assertLoaded();
-    return this;
+    const dialogPromise = this.page.waitForEvent('dialog', { timeout: 5000 });
+    const clickPromise = this.submitButton.click();
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toBe('Press OK to proceed!');
+    expect(dialog.type()).toBe('confirm');
+
+    await dialog.accept();
+    await clickPromise;
   }
 
   async getName() {

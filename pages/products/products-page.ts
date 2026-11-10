@@ -39,7 +39,9 @@ export class ProductsPage {
     await expect(this.heading).toHaveText(expectedTitle);
   }
 
-  async fillSearch(value: string) { await this.searchInput.fill(value); }
+  async fillSearch(value: string) {
+    await this.searchInput.fill(value);
+  }
 
   /** Search navigation completes with its query and the correct visible title. */
   async clickSearch() {

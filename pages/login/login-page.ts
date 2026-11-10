@@ -39,8 +39,13 @@ export class LoginPage {
     await expect(this.heading).toHaveText('Login to your account');
   }
 
-  async fillEmail(value: string) { await this.emailInput.fill(value); }
-  async fillPassword(value: string) { await this.passwordInput.fill(value); }
+  async fillEmail(value: string) {
+    await this.emailInput.fill(value);
+  }
+
+  async fillPassword(value: string) {
+    await this.passwordInput.fill(value);
+  }
 
   /** Valid-login navigation returns the verified home page; user validation stays explicit. */
   async clickLogin() {
