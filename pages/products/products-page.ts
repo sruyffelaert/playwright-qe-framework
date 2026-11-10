@@ -35,8 +35,8 @@ export class ProductsPage {
   async assertLoaded() {
     const expectedTitle = new URL(this.page.url()).searchParams.has('search')
       ? 'Searched Products' : 'All Products';
-    await expect(this.heading, 'Products heading is visible').toBeVisible();
-    await expect(this.heading, 'Products heading matches exactly').toHaveText(expectedTitle);
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText(expectedTitle);
   }
 
   async fillSearch(value: string) { await this.searchInput.fill(value); }
@@ -58,22 +58,22 @@ export class ProductsPage {
   /** Completes when the add confirmation is ready; caller chooses how to dismiss it. */
   async clickAddToCart(productName: string) {
     const product = this.productCard(productName);
-    await expect(product, 'Exactly one matching product card is visible').toBeVisible();
+    await expect(product).toBeVisible();
     await product.locator('.single-products').locator('.productinfo').locator('.btn').click();
-    await expect(this.continueShoppingButton, 'Cart confirmation is visible').toBeVisible();
-    await expect(this.continueShoppingButton, 'Continue Shopping is enabled').toBeEnabled();
+    await expect(this.continueShoppingButton).toBeVisible();
+    await expect(this.continueShoppingButton).toBeEnabled();
   }
 
   async clickContinueShopping() {
     await this.continueShoppingButton.click();
-    await expect(this.continueShoppingButton, 'Cart confirmation is dismissed').toBeHidden();
+    await expect(this.continueShoppingButton).toBeHidden();
     await this.assertLoaded();
     return this;
   }
 
   async clickViewProduct(productName: string) {
     const product = this.productCard(productName);
-    await expect(product, 'Exactly one matching product card is visible').toBeVisible();
+    await expect(product).toBeVisible();
     const link = product.locator('.choose').getByRole('link');
     const href = await link.getAttribute('href');
     const productPath = href && new URL(href, this.page.url()).pathname;
@@ -98,8 +98,8 @@ export class ProductsPage {
   }
 
   async validateSearch(expected: string) {
-    await expect(this.searchInput, 'Product search is visible').toBeVisible();
-    await expect(this.searchInput, 'Product search matches exactly').toHaveValue(expected);
+    await expect(this.searchInput).toBeVisible();
+    await expect(this.searchInput).toHaveValue(expected);
   }
 
   private productCard(productName: string) {

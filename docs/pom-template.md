@@ -16,7 +16,7 @@ Status: illustrative design template only. The classes below describe a fictiona
 | Validations | Expected data, visibility/attachment policy, complete value/state, exactness, negative-state semantics |
 | Decomposition and hierarchy | Functional responsibility boundaries, parent ownership, readonly subordinate APIs, readiness only when active; no element-count threshold |
 | Lifecycle | Direct construction in the test using Playwright’s `page`, resource ownership and cleanup if needed |
-| Diagnostics | Native assertions, meaningful secret-free messages, useful steps, no swallowed failures |
+| Diagnostics | Native assertions without custom messages, useful steps, no swallowed failures |
 
 ## Page-family structure
 
@@ -61,8 +61,8 @@ class SampleEditorPreferencesPage {
   }
 
   async assertLoaded() {
-    await expect(this.heading, 'Preferences heading is visible').toBeVisible();
-    await expect(this.heading, 'Preferences heading matches exactly').toHaveText('Preferences');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Preferences');
   }
 
   async checkTerms() {
@@ -80,8 +80,8 @@ class SampleEditorPreferencesPage {
   }
 
   async validateTermsChecked(expected: boolean) {
-    await expect(this.termsCheckbox, 'Terms checkbox is visible').toBeVisible();
-    await expect(this.termsCheckbox, 'Terms selection matches').toBeChecked({
+    await expect(this.termsCheckbox).toBeVisible();
+    await expect(this.termsCheckbox).toBeChecked({
       checked: expected,
     });
   }
@@ -128,8 +128,8 @@ export class SampleEditorPage {
   }
 
   async assertLoaded() {
-    await expect(this.heading, 'Sample editor heading is visible').toBeVisible();
-    await expect(this.heading, 'Sample editor heading matches exactly').toHaveText('Sample editor');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Sample editor');
   }
 
   async fillEmail(value: string) {
@@ -157,37 +157,33 @@ export class SampleEditorPage {
   }
 
   async validateEmail(expected: string) {
-    await expect(this.emailInput, 'Email input is visible').toBeVisible();
-    await expect(this.emailInput, 'Email matches the complete expected value')
-      .toHaveValue(expected);
+    await expect(this.emailInput).toBeVisible();
+    await expect(this.emailInput).toHaveValue(expected);
   }
 
   async validateCountry(expectedCode: string) {
-    await expect(this.countrySelect, 'Country select is visible').toBeVisible();
-    await expect(this.countrySelect, 'Selected country code matches')
-      .toHaveValue(expectedCode);
+    await expect(this.countrySelect).toBeVisible();
+    await expect(this.countrySelect).toHaveValue(expectedCode);
   }
 
   async validateSubmitEnabled(expected: boolean) {
-    await expect(this.submitButton, 'Submit button is visible').toBeVisible();
+    await expect(this.submitButton).toBeVisible();
     if (expected) {
-      await expect(this.submitButton, 'Submit button is enabled').toBeEnabled();
+      await expect(this.submitButton).toBeEnabled();
     } else {
-      await expect(this.submitButton, 'Submit button is disabled').toBeDisabled();
+      await expect(this.submitButton).toBeDisabled();
     }
   }
 
   async validateStatus(expected: string) {
-    await expect(this.statusMessage, 'Status message is visible').toBeVisible();
-    await expect(this.statusMessage, 'Complete status message matches')
-      .toHaveText(expected);
+    await expect(this.statusMessage).toBeVisible();
+    await expect(this.statusMessage).toHaveText(expected);
   }
 
   // Explicit opt-in to partial matching; keeps the visibility requirement.
   async validateStatusContaining(fragment: string) {
-    await expect(this.statusMessage, 'Status message is visible').toBeVisible();
-    await expect(this.statusMessage, 'Status message contains expected fragment')
-      .toContainText(fragment);
+    await expect(this.statusMessage).toBeVisible();
+    await expect(this.statusMessage).toContainText(fragment);
   }
 }
 ```

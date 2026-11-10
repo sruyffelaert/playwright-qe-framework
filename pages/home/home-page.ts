@@ -37,8 +37,8 @@ export class HomePage {
 
   /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.heading, 'Home heading is visible').toBeVisible();
-    await expect(this.heading, 'Home heading matches exactly').toHaveText('Features Items');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Features Items');
   }
 
   async clickProducts() {
@@ -77,28 +77,27 @@ export class HomePage {
   }
 
   async validateLoggedInUser(expectedName: string) {
-    await expect(this.loggedInUser, 'Authenticated user is visible').toBeVisible();
-    await expect(this.loggedInUser, 'Authenticated user name matches exactly')
-      .toHaveText(`Logged in as ${expectedName}`);
+    await expect(this.loggedInUser).toBeVisible();
+    await expect(this.loggedInUser).toHaveText(`Logged in as ${expectedName}`);
   }
 
   async validateLoggedInUserHidden() {
-    await expect(this.loggedInUser, 'Authenticated user is hidden or absent').toBeHidden();
+    await expect(this.loggedInUser).toBeHidden();
   }
 
   async validateSignupLoginVisible() {
-    await expect(this.signupLoginLink, 'Signup / Login is visible').toBeVisible();
+    await expect(this.signupLoginLink).toBeVisible();
   }
 
   async validateSignupLoginHidden() {
-    await expect(this.signupLoginLink, 'Signup / Login is hidden or absent').toBeHidden();
+    await expect(this.signupLoginLink).toBeHidden();
   }
 
   async validateLogoutVisible() {
-    await expect(this.logoutLink, 'Logout is visible').toBeVisible();
+    await expect(this.logoutLink).toBeVisible();
   }
 
   async validateLogoutHidden() {
-    await expect(this.logoutLink, 'Logout is hidden or absent').toBeHidden();
+    await expect(this.logoutLink).toBeHidden();
   }
 }

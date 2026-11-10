@@ -35,8 +35,8 @@ export class LoginPage {
 
   /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.heading, 'Login heading is visible').toBeVisible();
-    await expect(this.heading, 'Login heading matches exactly').toHaveText('Login to your account');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Login to your account');
   }
 
   async fillEmail(value: string) { await this.emailInput.fill(value); }
@@ -56,25 +56,25 @@ export class LoginPage {
   }
 
   async validateEmail(expected: string) {
-    await expect(this.emailInput, 'Login email is visible').toBeVisible();
-    await expect(this.emailInput, 'Login email matches exactly').toHaveValue(expected);
+    await expect(this.emailInput).toBeVisible();
+    await expect(this.emailInput).toHaveValue(expected);
   }
 
   // No password validator: native expected/received output would disclose it.
   async validateHeading(expected: string) {
-    await expect(this.heading, 'Login heading is visible').toBeVisible();
-    await expect(this.heading, 'Complete login heading matches').toHaveText(expected);
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText(expected);
   }
 
   async validateSignupLoginVisible() {
-    await expect(this.signupLoginLink, 'Signup / Login is visible').toBeVisible();
+    await expect(this.signupLoginLink).toBeVisible();
   }
 
   async validateLogoutHidden() {
-    await expect(this.logoutLink, 'Logout is hidden or absent').toBeHidden();
+    await expect(this.logoutLink).toBeHidden();
   }
 
   async validateLoggedInUserHidden() {
-    await expect(this.loggedInUser, 'Authenticated user is hidden or absent').toBeHidden();
+    await expect(this.loggedInUser).toBeHidden();
   }
 }

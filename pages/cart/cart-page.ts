@@ -25,8 +25,8 @@ export class CartPage {
 
   /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.heading, 'Cart heading is visible').toBeVisible();
-    await expect(this.heading, 'Cart heading matches exactly').toHaveText('Shopping Cart');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Shopping Cart');
   }
 
   async removeProduct(productName: string) {
@@ -38,42 +38,41 @@ export class CartPage {
   }
 
   async validateProductCount(expected: number) {
-    await expect(this.cartContent, 'Cart content is visible').toBeVisible();
-    await expect(this.productRows, 'Complete cart product count matches').toHaveCount(expected);
+    await expect(this.cartContent).toBeVisible();
+    await expect(this.productRows).toHaveCount(expected);
   }
 
   async validateProductVisible(productName: string) {
     const row = this.productRow(productName);
     const name = row.getByRole('link', { name: productName, exact: true });
-    await expect(row, 'Exactly one matching cart product is visible').toBeVisible();
-    await expect(name, 'Cart product name is visible').toBeVisible();
-    await expect(name, 'Complete cart product name matches').toHaveText(productName);
+    await expect(row).toBeVisible();
+    await expect(name).toBeVisible();
+    await expect(name).toHaveText(productName);
   }
 
   async validateProductRemoved(productName: string) {
-    await expect(this.productRow(productName), 'Matching product is absent, not merely hidden')
-      .toHaveCount(0);
+    await expect(this.productRow(productName)).toHaveCount(0);
   }
 
   async validateProductPrice(productName: string, expected: string) {
     await this.validateProductVisible(productName);
     const price = this.productPrice(productName);
-    await expect(price, 'Cart unit price is visible').toBeVisible();
-    await expect(price, 'Complete cart unit price matches').toHaveText(expected);
+    await expect(price).toBeVisible();
+    await expect(price).toHaveText(expected);
   }
 
   async validateProductQuantity(productName: string, expected: number) {
     await this.validateProductVisible(productName);
     const quantity = this.productQuantity(productName);
-    await expect(quantity, 'Cart quantity is visible').toBeVisible();
-    await expect(quantity, 'Complete cart quantity matches').toHaveText(String(expected));
+    await expect(quantity).toBeVisible();
+    await expect(quantity).toHaveText(String(expected));
   }
 
   async validateProductTotal(productName: string, expected: string) {
     await this.validateProductVisible(productName);
     const total = this.productTotal(productName);
-    await expect(total, 'Cart line total is visible').toBeVisible();
-    await expect(total, 'Complete cart line total matches').toHaveText(expected);
+    await expect(total).toBeVisible();
+    await expect(total).toHaveText(expected);
   }
 
   async getProductName(productName: string) {

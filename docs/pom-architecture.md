@@ -109,7 +109,7 @@ For a single locator, keep strict matching; do not hide ambiguous matches with `
 
 Exact means the complete expected value, case-sensitive by default. String `toHaveText` uses Playwright's whitespace normalization; it is not byte-for-byte DOM text comparison. Input string values do not opt into substring matching. Use `validateStatusContaining(fragment)` as a separate, explicitly weaker method with the same visibility prerequisite. Do not accept `string | RegExp` in ordinary exact validators. A dedicated pattern validator must have a clearly named API and documented reason. See [locator assertions](https://playwright.dev/docs/api/class-locatorassertions) and [retrying assertions](https://playwright.dev/docs/test-assertions).
 
-Keep assertion timeouts centralized through Playwright's `expect` configuration. If a genuinely slow domain operation needs an override, define a narrow named contract and preserve native timeout options. Avoid a universal options bag allowing callers to disable visibility, attachment, or exactness. Do not log expected passwords or place them in step names or custom assertion messages.
+Keep assertion timeouts centralized through Playwright's `expect` configuration. If a genuinely slow domain operation needs an override, define a narrow named contract and preserve native timeout options. Avoid a universal options bag allowing callers to disable visibility, attachment, or exactness. Do not log expected passwords or place them in step names.
 
 ## Page-loaded verification
 
@@ -120,13 +120,14 @@ Every parent and subordinate POM owns an `assertLoaded()` method. At this time i
 
 ```ts
 async assertLoaded() {
-  await expect(this.heading, 'Login heading is visible').toBeVisible();
-  await expect(this.heading, 'Login heading matches exactly')
-    .toHaveText('Login to your account');
+  await expect(this.heading).toBeVisible();
+  await expect(this.heading).toHaveText('Login to your account');
 }
 ```
 
 There is no shared readiness helper or generic initialization model. Do not add default URL checks, jQuery checks, load-state checks, network waits, ready attributes, or checks of every form control to this method. If a particular page later needs additional loading verification, add that custom logic directly to that page’s `assertLoaded()` for its specific requirement. Other POMs do not inherit it automatically.
+
+The Contact Us page has an existing page-specific contract from the original test: after verifying its title, `ContactUsPage.assertLoaded()` waits for the document's `load` state before form interaction. Submission registers a five-second dialog wait before clicking, requires a `confirm` dialog with the exact message `Press OK to proceed!`, and accepts it. `validateSuccessMessage(expected)` separately verifies the visible, complete success text. This contract belongs only to the Contact Us POM and does not introduce shared loading logic.
 
 Current page markers:
 
@@ -173,7 +174,7 @@ Plain POMs need no browser teardown: Playwright closes its owned page and contex
 
 ## Diagnostics and error handling
 
-Use meaningful assertion messages naming the page/component and contract. Preserve the original Playwright error, locator, expected/received values, and call log. Do not replace it with `throw new Error('Validation failed')`, swallow it, or retry a mutation on any exception. Use `test.step` for useful public operations when reporting benefits; avoid reporting field values containing secrets. Keep default validations hard-failing; soft assertions should require a separately reviewed use case.
+Use vanilla Playwright assertions without custom messages. Preserve the original Playwright error, locator, expected/received values, and call log. Do not replace it with `throw new Error('Validation failed')`, swallow it, or retry a mutation on any exception. Use `test.step` for useful public operations when reporting benefits; avoid reporting field values containing secrets. Keep default validations hard-failing; soft assertions should require a separately reviewed use case.
 
 Screenshots already capture failures in this repository. The HTML report is under `playwright-report/`, while failure artifacts are under `test-results/`. Traces currently require a first retry, so ordinary local failures may have no trace. This proposal does not change that setting. Inspect reports before sharing because artifacts can include user and form data.
 

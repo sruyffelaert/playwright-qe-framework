@@ -32,8 +32,8 @@ export class ProductDetailsPage {
 
   /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.heading, 'Product details heading is visible').toBeVisible();
-    await expect(this.heading, 'Product details heading matches exactly').toHaveText(this.productName);
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText(this.productName);
   }
 
   async fillQuantity(value: string) { await this.quantityInput.fill(value); }
@@ -41,13 +41,13 @@ export class ProductDetailsPage {
   /** Completes when the cart confirmation is ready for interaction. */
   async clickAddToCart() {
     await this.addToCartButton.click();
-    await expect(this.continueShoppingButton, 'Cart confirmation is visible').toBeVisible();
-    await expect(this.continueShoppingButton, 'Continue Shopping is enabled').toBeEnabled();
+    await expect(this.continueShoppingButton).toBeVisible();
+    await expect(this.continueShoppingButton).toBeEnabled();
   }
 
   async clickContinueShopping() {
     await this.continueShoppingButton.click();
-    await expect(this.continueShoppingButton, 'Cart confirmation is dismissed').toBeHidden();
+    await expect(this.continueShoppingButton).toBeHidden();
     await this.assertLoaded();
     return this;
   }
@@ -65,7 +65,7 @@ export class ProductDetailsPage {
   }
 
   async validateQuantity(expected: string) {
-    await expect(this.quantityInput, 'Product quantity is visible').toBeVisible();
-    await expect(this.quantityInput, 'Product quantity matches exactly').toHaveValue(expected);
+    await expect(this.quantityInput).toBeVisible();
+    await expect(this.quantityInput).toHaveValue(expected);
   }
 }

@@ -31,10 +31,11 @@ export class ContactUsPage {
     return this;
   }
 
-  /** Verifies the page's distinct title is visible and correct. */
+  /** Verifies the title and the original contact form's document-load contract. */
   async assertLoaded() {
-    await expect(this.heading, 'Contact Us heading is visible').toBeVisible();
-    await expect(this.heading, 'Contact Us heading matches exactly').toHaveText('Contact Us');
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText('Contact Us');
+    await this.page.waitForLoadState('load');
   }
 
   async fillName(value: string) { await this.nameInput.fill(value); }
@@ -54,9 +55,8 @@ export class ContactUsPage {
     const confirmation = this.page.waitForEvent('dialog', { timeout: 5_000 })
       .then(async dialog => {
         try {
-          expect(dialog.type(), 'Contact submission uses a confirmation').toBe('confirm');
-          expect(dialog.message(), 'Contact confirmation message matches exactly')
-            .toBe('Press OK to proceed!');
+          expect(dialog.type()).toBe('confirm');
+          expect(dialog.message()).toBe('Press OK to proceed!');
         } catch (error) {
           // Release the browser even when the contract fails; retain that error.
           await dialog.dismiss().catch(() => undefined);
@@ -90,33 +90,32 @@ export class ContactUsPage {
   }
 
   async validateHeading(expected: string) {
-    await expect(this.heading, 'Contact heading is visible').toBeVisible();
-    await expect(this.heading, 'Complete contact heading matches').toHaveText(expected);
+    await expect(this.heading).toBeVisible();
+    await expect(this.heading).toHaveText(expected);
   }
 
   async validateName(expected: string) {
-    await expect(this.nameInput, 'Contact name is visible').toBeVisible();
-    await expect(this.nameInput, 'Contact name matches exactly').toHaveValue(expected);
+    await expect(this.nameInput).toBeVisible();
+    await expect(this.nameInput).toHaveValue(expected);
   }
 
   async validateEmail(expected: string) {
-    await expect(this.emailInput, 'Contact email is visible').toBeVisible();
-    await expect(this.emailInput, 'Contact email matches exactly').toHaveValue(expected);
+    await expect(this.emailInput).toBeVisible();
+    await expect(this.emailInput).toHaveValue(expected);
   }
 
   async validateSubject(expected: string) {
-    await expect(this.subjectInput, 'Contact subject is visible').toBeVisible();
-    await expect(this.subjectInput, 'Contact subject matches exactly').toHaveValue(expected);
+    await expect(this.subjectInput).toBeVisible();
+    await expect(this.subjectInput).toHaveValue(expected);
   }
 
   async validateMessage(expected: string) {
-    await expect(this.messageInput, 'Contact message is visible').toBeVisible();
-    await expect(this.messageInput, 'Contact message matches exactly').toHaveValue(expected);
+    await expect(this.messageInput).toBeVisible();
+    await expect(this.messageInput).toHaveValue(expected);
   }
 
   async validateSuccessMessage(expected: string) {
-    await expect(this.successMessage, 'Contact success message is visible').toBeVisible();
-    await expect(this.successMessage, 'Complete contact success message matches')
-      .toHaveText(expected);
+    await expect(this.successMessage).toBeVisible();
+    await expect(this.successMessage).toHaveText(expected);
   }
 }
