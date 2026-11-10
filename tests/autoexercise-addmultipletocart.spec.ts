@@ -14,8 +14,9 @@ test('Add multiple quantities to cart', async ({ page }) => {
   await productDetailsPage.clickAddToCart();
   await productDetailsPage.clickContinueShopping();
   const cartPage = await productDetailsPage.navigateToCart();
+  const blueTopRow = cartPage.productRow('Blue Top');
 
   await cartPage.validateProductCount(1);
-  await cartPage.validateProductQuantity('Blue Top', 4);
-  await cartPage.validateProductTotal('Blue Top', 'Rs. 2000');
+  await blueTopRow.validateQuantity(4);
+  await blueTopRow.validateTotal('Rs. 2000');
 });

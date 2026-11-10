@@ -17,12 +17,14 @@ test('Add multiple items to shopping cart', async ({ page }) => {
   await productsPage.clickContinueShopping();
 
   const cartPage = await productsPage.navigateToCart();
+  const blueTopRow = cartPage.productRow('Blue Top');
+  const menTshirtRow = cartPage.productRow('Men Tshirt');
 
   await cartPage.validateProductCount(2);
-  await cartPage.validateProductVisible('Blue Top');
-  await cartPage.validateProductVisible('Men Tshirt');
-  await cartPage.validateProductTotal('Blue Top', 'Rs. 500');
-  await cartPage.validateProductTotal('Men Tshirt', 'Rs. 400');
-  await cartPage.validateProductQuantity('Blue Top', 1);
-  await cartPage.validateProductQuantity('Men Tshirt', 1);
+  await blueTopRow.validateName('Blue Top');
+  await menTshirtRow.validateName('Men Tshirt');
+  await blueTopRow.validateTotal('Rs. 500');
+  await menTshirtRow.validateTotal('Rs. 400');
+  await blueTopRow.validateQuantity(1);
+  await menTshirtRow.validateQuantity(1);
 });

@@ -4,7 +4,7 @@ Status: current POM design and conventions for future page families. The migrate
 
 ## Repository context
 
-The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. All five specs construct `HomePage` directly from Playwright’s `page` and follow returned destination POMs. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
+The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. All five specs construct `HomePage` directly from Playwright’s `page` and follow returned destination POMs. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `CartProductRow` owns interactions and validations within an individual cart product row. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
 
 `playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. Both local and CI runs default to one worker. CI has two retries; local runs have no retries by default. The configured `use.baseURL` is the application target for relative POM routes. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
 
@@ -36,7 +36,7 @@ Use composition. Do not begin with a universal base page, a generic element-wrap
 
 ## Naming and layout
 
-All filenames use kebab-case. Page-family filenames share the complete parent prefix so related POMs sort together. Classes use PascalCase: `Page` identifies parent or subordinate page POMs, and `Component` identifies a shared reusable widget. Filenames need not repeat those class suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
+All filenames use kebab-case. Page-family filenames share the complete parent prefix so related POMs sort together. Classes use PascalCase: `Page` identifies page POMs, `Component` identifies a shared reusable widget, and a domain-specific subordinate may use its explicit name, such as `CartProductRow`. Filenames need not repeat those class suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
 
 Proposed paths, not directories created in this iteration:
 
@@ -54,7 +54,25 @@ components/
 
 Give page-specific subsections the same parent prefix and folder so they sort together. Truly shared components live under `components/`; do not duplicate them under every page merely to preserve alphabetical grouping. Existing filenames do not need a migration as part of this documentation update.
 
-For repeated content, let its owning POM resolve a stable business key internally. Tests supply the key, never a selector or row index unless order is itself the requirement. Expose a subordinate POM when it represents a functional section that tests should address directly; keep implementation helpers private. Do not expose internal row or element wrappers just to mirror DOM nesting.
+For repeated content, let its owning POM resolve a stable business key internally. Tests supply the key, never a selector or row index unless order is itself the requirement. Expose a subordinate POM when tests should address its functional scope directly; keep raw locators and implementation helpers private.
+
+### Cart product rows
+
+`CartPage.productRow(productName)` is public and synchronously returns a new `CartProductRow`, not a raw locator. It selects only cart product rows containing a product-name link with an exact accessible-name match. There is no substring matching or implicit first-match selection.
+
+`CartProductRow` lives in `pages/cart/cart-product-row.ts`. Its constructor receives the matched row locator and expected product name, and initializes private locators exclusively within that row: item, description/name, price, quantity, total, and remove button. It has no browser-page dependency or `open()` method. Its `assertLoaded()` checks the visible product name and exact expected text. Individual field validators independently check visibility and exact text; getters return current values. `clickRemove()` clicks the row’s remove control and waits for that row to be absent.
+
+Tests obtain the row POM before interacting with a product:
+
+```ts
+const blueTopRow = cartPage.productRow('Blue Top');
+await blueTopRow.validatePrice('Rs. 500');
+await blueTopRow.validateQuantity(1);
+await blueTopRow.clickRemove();
+await blueTopRow.validateRemoved();
+```
+
+Cart-level checks, such as `validateProductCount()`, stay on `CartPage`. Product-level actions, getters, and validators belong to the returned row POM, without forwarding wrappers on `CartPage`. Row objects hold lazy locators, so the same object can validate removal after its DOM row disappears. Obtaining a row is scoped object creation, not page navigation; it does not use a `navigateTo` method or navigate the browser.
 
 ## Locators and constructors
 
@@ -126,7 +144,7 @@ Each method specifies whether the target is singular, must exist, must be visibl
 | Custom dropdown: `validateCountry(expectedLabel: string)` | Visible trigger and exact selected label; validate ARIA selection state if it expresses the widget's selection contract |
 | Button: `validateSubmitEnabled(expected: boolean)` | Visible, then positive `toBeEnabled()` or `toBeDisabled()`; enabled alone does not prove visible or unobstructed |
 | Hidden target: `validateHelpHidden()` | `toBeHidden()` explicitly allows either hidden or absent; if it must remain mounted, also require `toBeAttached()` |
-| Removed target: `validateProductRemoved(key)` | Key-scoped `toHaveCount(0)`; hidden is insufficient to prove removal |
+| Removed row: `productRow.validateRemoved()` | Key-scoped `toHaveCount(0)`; hidden is insufficient to prove removal |
 | Collection: `validateProductNames(expectedNames)` | Exact count and visible items plus complete ordered text, unless an explicitly named unordered contract is used |
 
 For a single locator, keep strict matching; do not hide ambiguous matches with `.first()`. For a collection, handle visibility per expected item since a collection text check alone does not establish every item's visibility.

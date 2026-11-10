@@ -17,19 +17,21 @@ test('Remove item from cart', async ({ page }) => {
   await productsPage.clickContinueShopping();
 
   const cartPage = await productsPage.navigateToCart();
+  const blueTopRow = cartPage.productRow('Blue Top');
+  const menTshirtRow = cartPage.productRow('Men Tshirt');
 
   await cartPage.validateProductCount(2);
-  await cartPage.validateProductPrice('Blue Top', 'Rs. 500');
-  await cartPage.validateProductQuantity('Blue Top', 1);
-  await cartPage.validateProductPrice('Men Tshirt', 'Rs. 400');
-  await cartPage.validateProductQuantity('Men Tshirt', 1);
-  await cartPage.validateProductVisible('Blue Top');
+  await blueTopRow.validatePrice('Rs. 500');
+  await blueTopRow.validateQuantity(1);
+  await menTshirtRow.validatePrice('Rs. 400');
+  await menTshirtRow.validateQuantity(1);
+  await blueTopRow.validateName('Blue Top');
 
-  await cartPage.removeProduct('Blue Top');
+  await blueTopRow.clickRemove();
 
-  await cartPage.validateProductRemoved('Blue Top');
+  await blueTopRow.validateRemoved();
   await cartPage.validateProductCount(1);
-  await cartPage.validateProductVisible('Men Tshirt');
-  await cartPage.validateProductPrice('Men Tshirt', 'Rs. 400');
-  await cartPage.validateProductQuantity('Men Tshirt', 1);
+  await menTshirtRow.validateName('Men Tshirt');
+  await menTshirtRow.validatePrice('Rs. 400');
+  await menTshirtRow.validateQuantity(1);
 });
