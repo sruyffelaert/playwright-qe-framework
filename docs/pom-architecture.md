@@ -4,9 +4,9 @@ Status: proposed architecture for future implementation. This iteration adds doc
 
 ## Repository context
 
-The repository currently contains five inline Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. Each spec imports `test` and `expect` through `@fixtures/fixtures`. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. There are no production page or component classes.
+The repository contains five Automation Exercise specs covering cart quantities, multiple products, removal, contact-form upload, and login/logout. The removal spec constructs `HomePage` directly from Playwright’s `page` and follows returned destination POMs; the other specs remain inline. Six page classes currently model Home, Products, Product Details, Cart, Contact Us, and Login. `fixtures/fixtures.ts` supplies an automatic context-level ad-blocking fixture and a dialog listener. This architecture describes both existing page APIs and the required organization for future decomposition; this documentation update does not reorganize production code.
 
-`playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. CI has one worker and two retries; local runs have no retries by default. The configuration has no active `baseURL`. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
+`playwright.config.ts` runs Chromium, Firefox, and WebKit, enables full parallelism, loads `.env`, saves screenshots on failure, and collects traces on the first retry. CI has one worker and two retries; local runs have no retries by default. The configured `use.baseURL` is the application target for relative POM routes. The four remaining inline specs retain their original absolute URLs until they are migrated. `tsconfig.json` currently defines only the fixture alias and Node types. These observations inform the design; changing them is outside this iteration.
 
 ## Objectives and ownership
 
@@ -17,59 +17,78 @@ Tests specify **what** to do and validate. Page and component objects enforce **
 | Selectors, scoping, control mechanics | Owning page or component | `fillEmail(value)`, `checkTerms()`, `clickSubmit()` |
 | Read current state | Owning page or component | `getEmail()`, `isTermsChecked()` |
 | Enforce an element validation contract | Owning page or component | `validateEmail(expected)`, `validateTermsChecked(expected)` |
-| Establish page identity and initialization | Page; delegates section checks to components | `assertLoaded()` |
+| Verify the page or section is loaded | Its owning POM checks a distinct visible title | `assertLoaded()` |
 | Select a scenario and its expected outcomes | Test | Calls actions and validations with explicit expected data |
 | Coordinate a reusable journey | Optional flow object | Calls several page APIs; owns no DOM selectors |
 | Compare business facts across pages or systems | Test or focused domain validator | Compares typed facts; delegates UI element checks back to their owners |
 
-A page models a route or distinct screen. A component models a bounded tab, section, dialog, repeated item, or shared widget. Extract a component when it has coherent behavior or reuse, not merely because several elements share a container. A page owns its route and destination readiness; components own only their scoped UI. Components can have their own `assertLoaded()` for an active section, without asserting a global URL.
+## Page decomposition and hierarchy
+
+A single application page may contain multiple POM classes. Organize them by logical functionality, complexity, and maintainability, rather than requiring one class per URL. Tabs, panels, forms, and substantial sections may each have a subordinate POM. Do not consolidate dozens of unrelated elements into one class because they share a URL. Decomposition is a deliberate architectural requirement to evaluate during design, not an optimization reserved for excessively large pages. There is no arbitrary element-count threshold.
+
+The parent page owns its page-loaded verification and transitions between its sections. Each subordinate POM owns its scoped locators, interactions, getters, and individual validation contracts. A subordinate POM can represent meaningful functionality within one page without being reused elsewhere or having its own route. Reserve shared component objects for functionality actually shared across page families; reuse is not a prerequisite for page decomposition.
+
+Parents may expose subordinate POMs as public readonly properties so tests can navigate a stable functional hierarchy. For example, `customerDetails.address.fillCity(value)` and `customerDetails.address.validateCity(expected)` express the same ownership boundary. This exposes the functional API, while all locators and browser objects stay private. Avoid forcing a parent to duplicate every subordinate method through forwarding wrappers. Small controls or repeated rows do not automatically need their own class; require a meaningful responsibility boundary.
+
+Each parent and subordinate implements its own `assertLoaded()`. For now this checks only that a major, distinct page or section element is visible and has the complete expected title. Parent verification does not require inactive tabs or optional panels to be visible. A parent navigation action that opens a tab or panel awaits the destination subordinate’s `assertLoaded()` and returns that subordinate POM.
 
 Use composition. Do not begin with a universal base page, a generic element-wrapper hierarchy, a service locator, or a central assertion engine. Explicit methods keep contracts reviewable and preserve native Playwright behavior. A small helper can be extracted later when repeated code has the same semantics and diagnostics; it must not weaken page ownership.
 
 ## Naming and layout
 
-All filenames use kebab-case. Classes use PascalCase with `Page` or `Component` suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
+All filenames use kebab-case. Page-family filenames share the complete parent prefix so related POMs sort together. Classes use PascalCase: `Page` identifies parent or subordinate page POMs, and `Component` identifies a shared reusable widget. Filenames need not repeat those class suffixes. Methods and private fields use camelCase with meaningful control names, such as `emailInput` and `submitButton`; avoid technical abbreviations in public APIs.
 
 Proposed paths, not directories created in this iteration:
 
 ```text
 pages/
-  account/
-    account-details-component.ts    # AccountDetailsComponent
-    account-page.ts                 # AccountPage
-    account-security-component.ts   # AccountSecurityComponent
-  cart/
-    cart-item-component.ts          # CartItemComponent
-    cart-page.ts                    # CartPage
+  customer-details/
+    customer-details.ts            # CustomerDetailsPage
+    customer-details-address.ts    # CustomerDetailsAddressPage
+    customer-details-contacts.ts   # CustomerDetailsContactsPage
+    customer-details-financial.ts  # CustomerDetailsFinancialPage
+    customer-details-history.ts    # CustomerDetailsHistoryPage
 components/
-  site-navigation-component.ts      # SiteNavigationComponent
+  site-navigation-component.ts     # SiteNavigationComponent
 ```
 
-Give page-specific subsections the same page prefix and folder so they sort together. Truly shared components live under `components/`; do not duplicate them under every page merely to preserve alphabetical grouping. For a repeated row, the page privately resolves a row by a stable business key and creates a scoped component. Tests supply the key, never a selector or row index unless order is itself the requirement.
+Give page-specific subsections the same parent prefix and folder so they sort together. Truly shared components live under `components/`; do not duplicate them under every page merely to preserve alphabetical grouping. Existing filenames do not need a migration as part of this documentation update.
 
-Prefer private component fields and page methods that delegate their contracts. A readonly public component object is an acceptable deliberate alternative for large, independently meaningful sections, provided it exposes only intention methods and never locators. Default to private composition to keep tests independent of page layout.
+For repeated content, let its owning POM resolve a stable business key internally. Tests supply the key, never a selector or row index unless order is itself the requirement. Expose a subordinate POM when it represents a functional section that tests should address directly; keep implementation helpers private. Do not expose internal row or element wrappers just to mirror DOM nesting.
 
 ## Locators and constructors
 
-Declare `private readonly` fields for the Playwright `Page`, used locators, and owned components. Initialize locators and dependencies synchronously in the constructor. Locators are lazy query definitions, so constructor creation does not require the target DOM to exist. Prefer labels, roles with exact accessible names, and stable test IDs; scope repeated names to their component. CSS is acceptable when semantics provide no reliable identity. See [Playwright locators](https://playwright.dev/docs/locators).
+Declare `private readonly` fields for the Playwright `Page`, used locators, and internal dependencies. Functional subordinate POMs exposed to tests use public readonly properties. Initialize locators and dependencies synchronously in the constructor. Locators are lazy query definitions, so constructor creation does not require the target DOM to exist. Prefer labels, roles with exact accessible names, and stable test IDs; scope repeated names to their component. CSS is acceptable when semantics provide no reliable identity. See [Playwright locators](https://playwright.dev/docs/locators).
 
-Do not expose `Locator`, `Page`, `ElementHandle`, selector strings, a general `find()` function, or callbacks receiving those objects through a public method. A constructor may accept a `Page`, or a component a root `Locator`, for internal dependency injection; tests use fixtures rather than constructing these dependencies themselves.
+Do not expose `Locator`, `Page`, `ElementHandle`, selector strings, a general `find()` function, or callbacks receiving those objects through a public method. A constructor may accept a `Page`, or a subordinate POM or shared component a root `Locator`, for internal dependency injection; tests construct the initial page POM directly using Playwright’s `page`; parent and destination POMs construct their own scoped dependencies.
 
 Constructors do not navigate, await, install event listeners, assert readiness, read credentials, or create test data. Define only selectors needed by actual behavior. Dynamic selectors may be constructed in a private method when their business key is known, with exact identity and escaping handled internally. Do not cache element handles, DOM snapshots, or an `isLoaded` flag across navigation.
 
 ## Interactions and retrieval
 
-Use typed asynchronous methods returning `Promise<void>` for ordinary actions. Prefer `fillEmail(value: string)`, `selectCountry(code: string)`, `checkTerms()`, `uncheckTerms()`, and `chooseDeliveryMethod(method)` over generic `setElement()` or boolean-heavy action methods. Native `fill`, `check`, `uncheck`, `selectOption`, and `click` retain their auto-waiting behavior; avoid forced actions or JavaScript clicks as defaults. Playwright checks actionability for supported actions, but this is not proof that application event handlers have initialized. See [auto-waiting](https://playwright.dev/docs/actionability).
+Use typed asynchronous methods for ordinary actions and let TypeScript infer their return types. Prefer `fillEmail(value: string)`, `selectCountry(code: string)`, `checkTerms()`, `uncheckTerms()`, and `chooseDeliveryMethod(method)` over generic `setElement()` or boolean-heavy action methods. Native `fill`, `check`, `uncheck`, `selectOption`, and `click` retain their auto-waiting behavior; avoid forced actions or JavaScript clicks as defaults. Playwright checks actionability for supported actions; keep that native behavior. See [auto-waiting](https://playwright.dev/docs/actionability).
 
-Provide complementary typed getters where there is a meaningful readable state: `getEmail(): Promise<string>`, `getCountry(): Promise<string>`, `isTermsChecked(): Promise<boolean>`. Native file inputs do not reveal the original local path; do not invent a misleading getter to force symmetry. Getters may wait for their documented presence/visibility precondition but return a snapshot, not an eventual expected result. They return data, not DOM objects.
+Provide complementary typed getters where there is a meaningful readable state: `getEmail()`, `getCountry()`, `isTermsChecked()`. Native file inputs do not reveal the original local path; do not invent a misleading getter to force symmetry. Getters may wait for their documented presence/visibility precondition but return a snapshot, not an eventual expected result. They return data, not DOM objects.
 
 Do not implement `validateEmail(expected)` as `expect(await getEmail()).toBe(expected)`. That loses the locator assertion's retrying comparison. Retrieval is useful for capturing a business fact; validation is the required API for checking an expected UI state.
 
-Action methods wait for their documented immediate completion, such as an add-to-cart confirmation, but do not silently validate every field or business outcome. Every transition method must document whether it leaves readiness verification to the caller or guarantees a destination is loaded. Default: `clickSubmit()` performs the action, and the caller invokes the destination's `assertLoaded()`; a same-page asynchronous save should wait for a specific completed-save signal. Register response, dialog, popup, or download waits before triggering the action. Avoid circular imports between page classes by coordinating cross-page work in the test or a flow.
+Action methods wait for their documented immediate completion, such as an add-to-cart confirmation, but do not silently validate every field or business outcome.
+
+### Navigation return contract
+
+Every navigation method must perform the transition, await the destination POM’s `assertLoaded()`, and return that verified POM. This applies to links, valid-login redirects, navigation after form submission, and opening subordinate tabs or panels. A method must reject if the expected destination fails readiness; returning an unchecked object is not allowed. Tests should use the returned object without needing an additional readiness call.
+
+`open()` verifies and returns `this`. Navigation to a different page creates its POM using the same Playwright page, whose browser context carries the configured `baseURL`, verifies it, then returns it. Navigation that reloads the current page, such as product search or contact submission, verifies the resulting state and returns `this`. Opening a functional subordinate returns that subordinate after its own readiness check. Ordinary field edits, validations, and AJAX actions that do not navigate need no page-object return value.
+
+Page-loaded verification uses a distinct title that remains valid for the destination state. For example, the Contact Us title remains visible after submission, so there is no need for a shared form-versus-confirmation loading policy. Checking the title does not replace the test’s explicit validation of confirmation text or the authenticated user. A positive-login navigation method expects the home page; a future negative-login scenario needs a separately named method with a login-error destination contract rather than silently returning either page.
+
+Direct page-class imports for navigation may reference each other. Construct destination objects inside methods, never as module-level instances or eagerly recursive constructor dependencies. Keep constructors synchronous. Do not introduce a generic factory or expose raw browser objects merely to avoid those imports.
+
+Register response, dialog, popup, or download waits before triggering the action. A same-page asynchronous save without navigation waits for its specific completion signal. Cross-page business flows may still coordinate page APIs, but must not take over readiness verification from a navigation method.
 
 ## Validation contracts
 
-Public `validateX(expected)` methods return `Promise<void>` and throw native Playwright assertion failures. They must not return success booleans or catch failures to continue. Tests choose expected data; they do not choose selector details, a weaker assertion, or which prerequisite checks to omit.
+Public `validateX(expected)` methods are asynchronous, have inferred return types, and throw native Playwright assertion failures. Provide one method per validation target; decomposing a page moves ownership without combining unrelated validations into a single method. They must not return success booleans or catch failures to continue. Tests choose expected data; they do not choose selector details, a weaker assertion, or which prerequisite checks to omit.
 
 Each method specifies whether the target is singular, must exist, must be visible, and which exact state is expected. Use native retrying locator assertions inside the owner. A visible target necessarily exists and is attached, so do not mechanically prepend `toBeAttached()` to `toBeVisible()`. An attached target can still be hidden; a value or text match does not replace a visibility requirement. Separate assertions are eventual checks, not an atomic snapshot; define a dedicated stable aggregate signal if the application requires simultaneous consistency.
 
@@ -92,19 +111,37 @@ Exact means the complete expected value, case-sensitive by default. String `toHa
 
 Keep assertion timeouts centralized through Playwright's `expect` configuration. If a genuinely slow domain operation needs an override, define a narrow named contract and preserve native timeout options. Avoid a universal options bag allowing callers to disable visibility, attachment, or exactness. Do not log expected passwords or place them in step names or custom assertion messages.
 
-## Page readiness
+## Page-loaded verification
 
-Every page documents `assertLoaded(): Promise<void>` as a repeatable, non-mutating readiness gate. Its contract includes:
+Every parent and subordinate POM owns an `assertLoaded()` method. At this time it does only two things:
 
-1. Route or screen identity: an anchored URL rule when the page has a distinct route, plus a unique visible root or heading. Decide deliberately which trailing slash, query parameters, and route identifiers are valid.
-2. Initialization: an observable signal that required JavaScript handlers and initial data are ready, such as an application-owned ready marker or an initially disabled control becoming enabled only after initialization.
-3. Required interaction surface: visible and appropriately enabled/editable controls or active components needed by this page's supported actions.
+1. Verify a major, distinct page or section element, such as its heading, is visible.
+2. Verify that element contains the complete expected title using a native retrying text assertion.
 
-An absent spinner is insufficient on its own: it may not have appeared yet. Likewise, visibility, `load`, a completed click, or a matching URL alone cannot prove hydration is complete. Where the application offers no dependable initialization signal, document the limitation and identify a deterministic, non-destructive observable state; do not pretend a fixed delay fixes it. A response wait establishes only its response condition, not subsequent DOM rendering or event-handler readiness. See [Playwright navigation and hydration guidance](https://playwright.dev/docs/navigations).
+```ts
+async assertLoaded() {
+  await expect(this.heading, 'Login heading is visible').toBeVisible();
+  await expect(this.heading, 'Login heading matches exactly')
+    .toHaveText('Login to your account');
+}
+```
 
-`open()` may navigate using an explicitly supplied absolute URL, then call `assertLoaded()`. This works with the repository's current lack of `baseURL`. Future relative routes require an explicitly reviewed configuration change. When entering through another page, use the destination's same readiness method. Components check their own active root and initialization state; do not require closed tabs or optional dialogs to be visible during page readiness.
+There is no shared readiness helper or generic initialization model. Do not add default URL checks, jQuery checks, load-state checks, network waits, ready attributes, or checks of every form control to this method. If a particular page later needs additional loading verification, add that custom logic directly to that page’s `assertLoaded()` for its specific requirement. Other POMs do not inherit it automatically.
 
-Avoid `waitForTimeout`, broad `networkidle` gates, manual retry loops, and wrapping an entire mutating workflow in retries. Readiness must not depend on how fast the browser or demo site happens to respond.
+Current page markers:
+
+| POM | Distinct element and expected text |
+| --- | --- |
+| Home | Main content heading: `Features Items` |
+| Products | Product-list heading: `All Products`, or `Searched Products` for search results |
+| Product Details | Product heading: the exact product name selected by the caller |
+| Cart | Current-page breadcrumb: `Shopping Cart` |
+| Login | Form heading: `Login to your account` |
+| Contact Us | Page heading: `Contact Us` |
+
+A dynamic page receives the expected title from the interaction that selects it. For example, `clickViewProduct(productName)` constructs the product-details POM with that product name so `assertLoaded()` can check it exactly; it must not accept any non-empty heading as sufficient.
+
+`open()` navigates to its relative route using Playwright’s configured `use.baseURL`, awaits its own `assertLoaded()`, and returns `this`. Constructors accept the existing Playwright page, not a hardcoded host or a second base-URL argument. Navigation methods await the destination’s page-loaded verification before returning that POM. Native action auto-waiting and specific interaction handling, such as accepting a confirmation dialog, remain part of the owning page’s action methods.
 
 ## Business validation boundaries
 
@@ -112,25 +149,27 @@ An element showing an order total is validated by its owning object, for example
 
 If a displayed fact must be captured, a getter can return a typed value, followed by domain comparison. Do not use this as an escape hatch for routine field assertions. Avoid computing the expected total solely from the same UI text being validated; that can confirm a consistently wrong result. Flows and domain validators receive page objects or typed facts, never reach into their DOM, and must not redefine element contracts.
 
-## Fixture integration plan
+## Object creation and lifecycle
 
-Future fixtures should extend the existing exported fixture `test`, preserving its automatic ad blocking. Define typed, test-scoped page-object fixtures depending on the built-in `page`; create each object and `await use(object)`. Construction alone performs no navigation, so injecting two page objects cannot make them fight over the same tab. Tests deliberately open a page or trigger a transition, then verify readiness.
-
-Conceptual access, not an implemented fixture:
+Do not add fixtures that construct or inject POMs. The test receives Playwright’s existing `page`, constructs the initial `HomePage`, and calls `open()`. Navigation methods create and return verified destination POMs using that same browser page.
 
 ```ts
-test('updates an email', async ({ accountPage }) => {
-  await accountPage.open();
-  await accountPage.fillEmail(expectedEmail);
-  await accountPage.validateEmail(expectedEmail);
+import { test } from '@fixtures/fixtures';
+import { HomePage } from '../pages/home/home-page';
+
+test('opens products', async ({ page }) => {
+  const homePage = new HomePage(page);
+  await homePage.open();
+  const productsPage = await homePage.clickProducts();
+  await productsPage.validateSearch('');
 });
 ```
 
-Each test/retry receives its own fixture instances and Playwright browser context. Page objects must not be module singletons or worker-scoped holders of a test's page. Shared accounts and backend data are not isolated merely because contexts are isolated; future data fixtures must provision or partition mutable resources and clean them up.
+The existing `fixtures/fixtures.ts` still supplies ad blocking from the original framework; it does not create page objects. Playwright’s built-in `page` and browser-context fixtures provide per-test and per-retry browser isolation. Each test creates its own POM instances. Do not use module singletons or worker-scoped holders of a test’s page. Shared accounts and backend data need deliberate isolation and cleanup independently of browser-context isolation.
 
-Pages construct scoped components internally; only independently shared dependencies need fixture injection. All page objects attached to the same built-in `page` describe the currently active tab, not independent browser tabs. Explicit popup/new-tab flows need their own `Page` and object lifecycle.
+Parent POMs construct scoped subordinate POMs synchronously and may expose them as readonly functional APIs. Subordinates share their parent’s browser page and test lifetime. All POMs attached to the same `page` describe the active tab, not independent tabs. Explicit popup/new-tab flows require an object for the returned browser page.
 
-Plain objects need no browser teardown: the built-in fixtures close their owned resources. If a future object registers listeners or opens resources, record ownership and remove/close only what it created in fixture teardown. Dialog handling must have one clear owner: the current listener logs but does not accept dialogs. Any future contact-form action must register a handler before submitting and must not add a competing generic auto-accept handler. See [Playwright fixture lifecycles](https://playwright.dev/docs/test-fixtures).
+Plain POMs need no browser teardown: Playwright closes its owned page and context. If an object registers listeners or creates resources, record ownership and release only what it created. Dialog handling must have one clear owner: the existing fixture listener logs but does not accept dialogs. Contact-form submission registers its confirmation handler before clicking; do not add a competing generic auto-accept handler. See [Playwright fixture lifecycles](https://playwright.dev/docs/test-fixtures).
 
 ## Diagnostics and error handling
 
@@ -140,6 +179,6 @@ Screenshots already capture failures in this repository. The HTML report is unde
 
 ## Decisions and review points
 
-Recommended defaults are private locators and components, composition, exact page-owned validators, repeatable explicit readiness, and test-scoped injection. These provide one reviewable contract per supported behavior without building a second automation runtime. Compared with locator-exposing POMs, this adds named methods but prevents each spec from inventing weaker verification. Compared with a generic validation engine, it keeps control semantics and failure context local. The [official POM guide](https://playwright.dev/docs/pom) provides the underlying object model; this proposal intentionally adds stronger encapsulation and validation ownership.
+Required design principles are private locators, functional decomposition, a deliberate parent/subordinate hierarchy, individual exact validators, page-owned title verification, and direct, test-local POM construction. Composition implements that hierarchy without exposing DOM details. These provide one reviewable contract per supported behavior without building a second automation runtime. Compared with locator-exposing POMs, this adds named methods but prevents each spec from inventing weaker verification. Compared with a generic validation engine, it keeps control semantics and failure context local. The [official POM guide](https://playwright.dev/docs/pom) provides the underlying object model; this proposal intentionally adds stronger encapsulation and validation ownership.
 
-Before implementing each real page, review its initialization signal, URL identity rule, and the positive/negative states its validators must distinguish. Decide whether any large section warrants a public component API. Authentication/test-data provisioning and any eventual `baseURL` or trace policy change also need a separate implementation decision; this documentation does not change the current password-only login setup. No unresolved decision blocks reviewing this design. See [the reusable template](pom-template.md) for a concrete specification.
+Before implementing each page family, identify its functional responsibilities and decide which belong to the parent versus subordinate POMs. Choose each object’s distinct visible title and complete expected text, and review the positive/negative states its individual validators must distinguish. Any future loading checks beyond that title belong only in the specific POM that needs them. Choose which functional subordinates the parent exposes to tests; do not defer this design until a page crosses a size threshold. Authentication/test-data provisioning and future changes to the configured target or trace policy need a separate implementation decision; this documentation does not change the current password-only login setup. No unresolved decision blocks reviewing this design. See [the reusable template](pom-template.md) for a concrete specification.

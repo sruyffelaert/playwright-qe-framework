@@ -1,18 +1,21 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { waitForAutomationExerciseReady } from '../../support/automation-exercise-readiness';
+import { ProductDetailsPage } from '../product-details/product-details-page';
+import { CartPage } from '../cart/cart-page';
 
 export class ProductsPage {
   private readonly page: Page;
-  private readonly url: string;
+  private readonly path: string;
+  private readonly heading: Locator;
   private readonly searchInput: Locator;
   private readonly searchButton: Locator;
   private readonly productCards: Locator;
   private readonly cartLink: Locator;
   private readonly continueShoppingButton: Locator;
 
-  constructor(page: Page, baseUrl = 'https://automationexercise.com') {
+  constructor(page: Page) {
     this.page = page;
-    this.url = new URL('/products', baseUrl).href;
+    this.path = '/products';
+    this.heading = page.locator('.features_items > h2');
     this.searchInput = page.getByRole('textbox', { name: 'Search Product', exact: true });
     this.searchButton = page.locator('#submit_search');
     this.productCards = page.locator('.product-image-wrapper');
@@ -23,37 +26,33 @@ export class ProductsPage {
   }
 
   async open() {
-    await this.page.goto(this.url);
+    await this.page.goto(this.path);
     await this.assertLoaded();
+    return this;
   }
 
-  /** Products route, including search variants, and initialized search controls. */
+  /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    const expectedUrl = new URL(this.url);
-    await expect(this.page, 'Products route matches').toHaveURL(url =>
-      url.origin === expectedUrl.origin && url.pathname === expectedUrl.pathname,
-    );
-    await waitForAutomationExerciseReady(this.page);
-    await expect(this.searchInput, 'Product search is visible').toBeVisible();
-    await expect(this.searchInput, 'Product search is editable').toBeEditable();
-    await expect(this.searchButton, 'Product search button is visible').toBeVisible();
-    await expect(this.searchButton, 'Product search button is enabled').toBeEnabled();
+    const expectedTitle = new URL(this.page.url()).searchParams.has('search')
+      ? 'Searched Products' : 'All Products';
+    await expect(this.heading, 'Products heading is visible').toBeVisible();
+    await expect(this.heading, 'Products heading matches exactly').toHaveText(expectedTitle);
   }
 
   async fillSearch(value: string) { await this.searchInput.fill(value); }
 
-  /** Search navigation completes with its query and initialized result controls. */
+  /** Search navigation completes with its query and the correct visible title. */
   async clickSearch() {
     const query = await this.searchInput.inputValue();
-    const expectedUrl = new URL(this.url);
     await Promise.all([
       this.page.waitForURL(url =>
-        url.origin === expectedUrl.origin && url.pathname === expectedUrl.pathname
+        url.pathname === this.path
         && url.searchParams.get('search') === query,
       ),
       this.searchButton.click(),
     ]);
     await this.assertLoaded();
+    return this;
   }
 
   /** Completes when the add confirmation is ready; caller chooses how to dismiss it. */
@@ -68,15 +67,30 @@ export class ProductsPage {
   async clickContinueShopping() {
     await this.continueShoppingButton.click();
     await expect(this.continueShoppingButton, 'Cart confirmation is dismissed').toBeHidden();
+    await this.assertLoaded();
+    return this;
   }
 
   async clickViewProduct(productName: string) {
     const product = this.productCard(productName);
     await expect(product, 'Exactly one matching product card is visible').toBeVisible();
-    await product.locator('.choose').click();
+    const link = product.locator('.choose').getByRole('link');
+    const href = await link.getAttribute('href');
+    const productPath = href && new URL(href, this.page.url()).pathname;
+    const match = productPath && /^\/product_details\/(\d+)$/.exec(productPath);
+    if (!match) throw new Error('View Product must link to a product-details route.');
+    const destination = new ProductDetailsPage(this.page, Number(match[1]), productName);
+    await link.click();
+    await destination.assertLoaded();
+    return destination;
   }
 
-  async clickCart() { await this.cartLink.click(); }
+  async clickCart() {
+    await this.cartLink.click();
+    const destination = new CartPage(this.page);
+    await destination.assertLoaded();
+    return destination;
+  }
 
   async getSearch() {
     await expect(this.searchInput).toBeVisible();

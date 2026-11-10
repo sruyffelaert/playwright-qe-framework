@@ -1,9 +1,9 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { waitForAutomationExerciseReady } from '../../support/automation-exercise-readiness';
+import { HomePage } from '../home/home-page';
 
 export class LoginPage {
   private readonly page: Page;
-  private readonly url: string;
+  private readonly path: string;
   private readonly heading: Locator;
   private readonly emailInput: Locator;
   private readonly passwordInput: Locator;
@@ -12,9 +12,9 @@ export class LoginPage {
   private readonly logoutLink: Locator;
   private readonly loggedInUser: Locator;
 
-  constructor(page: Page, baseUrl = 'https://automationexercise.com') {
+  constructor(page: Page) {
     this.page = page;
-    this.url = new URL('/login', baseUrl).href;
+    this.path = '/login';
     this.heading = page.getByRole('heading', { name: 'Login to your account', exact: true });
     this.emailInput = page.locator('form').filter({ hasText: 'Login' })
       .getByPlaceholder('Email Address', { exact: true });
@@ -28,28 +28,27 @@ export class LoginPage {
   }
 
   async open() {
-    await this.page.goto(this.url);
+    await this.page.goto(this.path);
     await this.assertLoaded();
+    return this;
   }
 
-  /** Login route, initialized handlers, unique heading, and editable credentials. */
+  /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.page, 'Login URL matches').toHaveURL(this.url);
-    await waitForAutomationExerciseReady(this.page);
-    await expect(this.heading, 'Login form heading is visible').toBeVisible();
-    await expect(this.emailInput, 'Login email is visible').toBeVisible();
-    await expect(this.emailInput, 'Login email is editable').toBeEditable();
-    await expect(this.passwordInput, 'Login password is visible').toBeVisible();
-    await expect(this.passwordInput, 'Login password is editable').toBeEditable();
-    await expect(this.loginButton, 'Login button is visible').toBeVisible();
-    await expect(this.loginButton, 'Login button is enabled').toBeEnabled();
+    await expect(this.heading, 'Login heading is visible').toBeVisible();
+    await expect(this.heading, 'Login heading matches exactly').toHaveText('Login to your account');
   }
 
   async fillEmail(value: string) { await this.emailInput.fill(value); }
   async fillPassword(value: string) { await this.passwordInput.fill(value); }
 
-  /** Trigger only; the caller verifies destination readiness and authentication. */
-  async clickLogin() { await this.loginButton.click(); }
+  /** Valid-login navigation returns the verified home page; user validation stays explicit. */
+  async clickLogin() {
+    await this.loginButton.click();
+    const destination = new HomePage(this.page);
+    await destination.assertLoaded();
+    return destination;
+  }
 
   async getEmail() {
     await expect(this.emailInput).toBeVisible();

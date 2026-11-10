@@ -1,9 +1,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { waitForAutomationExerciseReady } from '../../support/automation-exercise-readiness';
 
 export class ContactUsPage {
   private readonly page: Page;
-  private readonly url: string;
+  private readonly path: string;
   private readonly heading: Locator;
   private readonly nameInput: Locator;
   private readonly emailInput: Locator;
@@ -13,9 +12,9 @@ export class ContactUsPage {
   private readonly submitButton: Locator;
   private readonly successMessage: Locator;
 
-  constructor(page: Page, baseUrl = 'https://automationexercise.com') {
+  constructor(page: Page) {
     this.page = page;
-    this.url = new URL('/contact_us', baseUrl).href;
+    this.path = '/contact_us';
     this.heading = page.getByRole('heading', { name: 'Contact Us', exact: true });
     this.nameInput = page.getByRole('textbox', { name: 'Name', exact: true });
     this.emailInput = page.getByRole('textbox', { name: 'Email', exact: true });
@@ -27,22 +26,15 @@ export class ContactUsPage {
   }
 
   async open() {
-    await this.page.goto(this.url);
+    await this.page.goto(this.path);
     await this.assertLoaded();
+    return this;
   }
 
-  /** Contact route, initialized handlers, heading, and editable form controls. */
+  /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.page, 'Contact Us URL matches').toHaveURL(this.url);
-    await waitForAutomationExerciseReady(this.page);
     await expect(this.heading, 'Contact Us heading is visible').toBeVisible();
-    for (const field of [this.nameInput, this.emailInput, this.subjectInput, this.messageInput]) {
-      await expect(field, 'Contact form field is visible').toBeVisible();
-      await expect(field, 'Contact form field is editable').toBeEditable();
-    }
-    await expect(this.fileInput, 'Attachment control is visible').toBeVisible();
-    await expect(this.submitButton, 'Contact submit is visible').toBeVisible();
-    await expect(this.submitButton, 'Contact submit is enabled').toBeEnabled();
+    await expect(this.heading, 'Contact Us heading matches exactly').toHaveText('Contact Us');
   }
 
   async fillName(value: string) { await this.nameInput.fill(value); }
@@ -73,6 +65,8 @@ export class ContactUsPage {
         await dialog.accept();
       });
     await Promise.all([confirmation, this.submitButton.click()]);
+    await this.assertLoaded();
+    return this;
   }
 
   async getName() {

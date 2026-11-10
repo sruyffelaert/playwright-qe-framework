@@ -1,19 +1,21 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { waitForAutomationExerciseReady } from '../../support/automation-exercise-readiness';
+import { CartPage } from '../cart/cart-page';
 
 export class ProductDetailsPage {
   private readonly page: Page;
-  private readonly url: string;
-  private readonly productInformation: Locator;
+  private readonly path: string;
+  private readonly heading: Locator;
+  private readonly productName: string;
   private readonly quantityInput: Locator;
   private readonly addToCartButton: Locator;
   private readonly continueShoppingButton: Locator;
   private readonly cartLink: Locator;
 
-  constructor(page: Page, productId: number, baseUrl = 'https://automationexercise.com') {
+  constructor(page: Page, productId: number, productName: string) {
     this.page = page;
-    this.url = new URL(`/product_details/${productId}`, baseUrl).href;
-    this.productInformation = page.locator('.product-information');
+    this.path = `/product_details/${productId}`;
+    this.productName = productName;
+    this.heading = page.locator('.product-information').getByRole('heading', { level: 2 });
     this.quantityInput = page.locator('#quantity');
     this.addToCartButton = page.getByRole('button', { name: ' Add to cart', exact: true });
     this.continueShoppingButton = page.getByRole('button', {
@@ -23,19 +25,15 @@ export class ProductDetailsPage {
   }
 
   async open() {
-    await this.page.goto(this.url);
+    await this.page.goto(this.path);
     await this.assertLoaded();
+    return this;
   }
 
-  /** Exact product route, initialized handlers, and editable quantity control. */
+  /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.page, 'Product details URL matches').toHaveURL(this.url);
-    await waitForAutomationExerciseReady(this.page);
-    await expect(this.productInformation, 'Product information is visible').toBeVisible();
-    await expect(this.quantityInput, 'Product quantity is visible').toBeVisible();
-    await expect(this.quantityInput, 'Product quantity is editable').toBeEditable();
-    await expect(this.addToCartButton, 'Add to cart is visible').toBeVisible();
-    await expect(this.addToCartButton, 'Add to cart is enabled').toBeEnabled();
+    await expect(this.heading, 'Product details heading is visible').toBeVisible();
+    await expect(this.heading, 'Product details heading matches exactly').toHaveText(this.productName);
   }
 
   async fillQuantity(value: string) { await this.quantityInput.fill(value); }
@@ -50,9 +48,16 @@ export class ProductDetailsPage {
   async clickContinueShopping() {
     await this.continueShoppingButton.click();
     await expect(this.continueShoppingButton, 'Cart confirmation is dismissed').toBeHidden();
+    await this.assertLoaded();
+    return this;
   }
 
-  async clickCart() { await this.cartLink.click(); }
+  async clickCart() {
+    await this.cartLink.click();
+    const destination = new CartPage(this.page);
+    await destination.assertLoaded();
+    return destination;
+  }
 
   async getQuantity() {
     await expect(this.quantityInput).toBeVisible();

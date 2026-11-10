@@ -1,31 +1,32 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { waitForAutomationExerciseReady } from '../../support/automation-exercise-readiness';
 
 export class CartPage {
   private readonly page: Page;
-  private readonly url: string;
+  private readonly path: string;
+  private readonly heading: Locator;
   private readonly cartContent: Locator;
   private readonly rows: Locator;
   private readonly productRows: Locator;
 
-  constructor(page: Page, baseUrl = 'https://automationexercise.com') {
+  constructor(page: Page) {
     this.page = page;
-    this.url = new URL('/view_cart', baseUrl).href;
+    this.path = '/view_cart';
+    this.heading = page.locator('.breadcrumb .active');
     this.cartContent = page.locator('#cart_items');
     this.rows = page.getByRole('row');
     this.productRows = this.rows.filter({ has: page.locator('.cart_quantity') });
   }
 
   async open() {
-    await this.page.goto(this.url);
+    await this.page.goto(this.path);
     await this.assertLoaded();
+    return this;
   }
 
-  /** Cart route and initialized content, valid for empty or populated carts. */
+  /** Verifies the page's distinct title is visible and correct. */
   async assertLoaded() {
-    await expect(this.page, 'Cart URL matches').toHaveURL(this.url);
-    await waitForAutomationExerciseReady(this.page);
-    await expect(this.cartContent, 'Cart content is visible').toBeVisible();
+    await expect(this.heading, 'Cart heading is visible').toBeVisible();
+    await expect(this.heading, 'Cart heading matches exactly').toHaveText('Shopping Cart');
   }
 
   async removeProduct(productName: string) {
