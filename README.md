@@ -60,3 +60,11 @@ Tests use isolated browser contexts. All five specs construct `HomePage` directl
 These are live end-to-end tests: internet access, a reachable demo site, installed Playwright browsers, and valid login credentials are required. Traces and reports can contain account or form data; review them before sharing.
 
 Secrets, credentials directories, dependencies, and generated reports are excluded from Git. Only `.env.example` is intended for publication. No remote repository is configured by this project.
+
+## Copyright and Usage
+
+Copyright © 2026. All rights reserved.
+
+This repository is publicly available for portfolio review and technical evaluation.
+
+No license is granted to use, modify, redistribute, or incorporate this code into other projects without prior written permission.
