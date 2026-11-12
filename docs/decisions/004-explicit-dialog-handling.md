@@ -1,6 +1,6 @@
 # ADR 004 — Explicit JavaScript Dialog Handling and Failure Enforcement
 
-**Status:** Proposed — Pending Review  
+**Status:** Accepted
 **Decision Owner:** Framework Architect  
 **Scope:** Playwright / TypeScript Quality Engineering Framework
 
