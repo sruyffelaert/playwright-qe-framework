@@ -50,11 +50,7 @@ export class ContactUsPage {
     await this.fileInput.setInputFiles(filePath);
   }
 
-  /**
-   * Owns only this submission's confirm dialog; validates its complete message and
-   * type before accepting. The existing fixture's logging listener can coexist.
-   * Caller validates the resulting success text explicitly.
-   */
+  /** Validates this submission's confirmation before accepting it. */
   async clickSubmitAndAcceptConfirmation() {
     const dialogPromise = this.page.waitForEvent('dialog', { timeout: 5000 });
     const clickPromise = this.submitButton.click();
