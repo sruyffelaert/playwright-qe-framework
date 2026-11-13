@@ -1,32 +1,35 @@
 import { test } from '@fixtures/fixtures';
 import { HomePage } from '../pages/home/home-page';
 
-test('Add multiple items to shopping cart', async ({ page }) => {
+test('Add multiple items to shopping cart', async ({ page, environmentData }) => {
+  const firstProduct = environmentData.PRODUCTS['First in-stock product allowing multiple quantities'];
+  const secondProduct = environmentData.PRODUCTS['Second in-stock product allowing multiple quantities'];
+  const quantity = 1;
   const homePage = new HomePage(page);
   await homePage.open();
   const productsPage = await homePage.navigateToProducts();
 
-  await productsPage.fillSearch('Blue Top');
+  await productsPage.fillSearch(firstProduct.search);
   await productsPage.clickSearch();
-  const blueTopTile = productsPage.productTile('Blue Top');
-  await blueTopTile.clickAddToCart();
+  const firstProductTile = productsPage.productTile(firstProduct.name);
+  await firstProductTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
-  await productsPage.fillSearch('Men tshirt');
+  await productsPage.fillSearch(secondProduct.search);
   await productsPage.clickSearch();
-  const menTshirtTile = productsPage.productTile('Men Tshirt');
-  await menTshirtTile.clickAddToCart();
+  const secondProductTile = productsPage.productTile(secondProduct.name);
+  await secondProductTile.clickAddToCart();
   await productsPage.clickContinueShopping();
 
   const cartPage = await productsPage.navigateToCart();
-  const blueTopRow = cartPage.productRow('Blue Top');
-  const menTshirtRow = cartPage.productRow('Men Tshirt');
+  const firstProductRow = cartPage.productRow(firstProduct.name);
+  const secondProductRow = cartPage.productRow(secondProduct.name);
 
   await cartPage.validateProductCount(2);
-  await blueTopRow.validateName('Blue Top');
-  await menTshirtRow.validateName('Men Tshirt');
-  await blueTopRow.validateTotal('Rs. 500');
-  await menTshirtRow.validateTotal('Rs. 400');
-  await blueTopRow.validateQuantity(1);
-  await menTshirtRow.validateQuantity(1);
+  await firstProductRow.validateName(firstProduct.name);
+  await secondProductRow.validateName(secondProduct.name);
+  await firstProductRow.validateTotal(`${environmentData.Currency} ${firstProduct.price * quantity}`);
+  await secondProductRow.validateTotal(`${environmentData.Currency} ${secondProduct.price * quantity}`);
+  await firstProductRow.validateQuantity(quantity);
+  await secondProductRow.validateQuantity(quantity);
 });

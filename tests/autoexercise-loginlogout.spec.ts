@@ -2,7 +2,8 @@ import { test } from '@fixtures/fixtures';
 import process from 'node:process';
 import { HomePage } from '../pages/home/home-page';
 
-test('Login and log out verification', async ({ page }) => {
+test('Login and log out verification', async ({ page, environmentData }) => {
+  const account = environmentData.ACCOUNTS['Registered account for login and logout'];
   const sitePassword = process.env.TEST_PASSWORD;
 
   if (!sitePassword) {
@@ -14,11 +15,11 @@ test('Login and log out verification', async ({ page }) => {
   const loginPage = await homePage.navigateToSignupLogin();
 
   await loginPage.validateHeading('Login to your account');
-  await loginPage.fillEmail('a@asdfasdf.com');
+  await loginPage.fillEmail(account.email);
   await loginPage.fillPassword(sitePassword);
   const authenticatedHomePage = await loginPage.navigateToLogin();
 
-  await authenticatedHomePage.validateLoggedInUser('ba');
+  await authenticatedHomePage.validateLoggedInUser(account.displayName);
   await authenticatedHomePage.validateSignupLoginHidden();
   const loggedOutLoginPage = await authenticatedHomePage.navigateToLogout();
 
