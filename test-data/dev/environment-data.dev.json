@@ -1,0 +1,7 @@
+{
+  "PERMUTATION_TESTS": {
+    "Single Alphabet Letters": ["A", "B", "C", "D"],
+    "Single Digit Numbers": ["1", "2", "3"],
+    "Single Special Characters": ["&", "$", "!"]
+  }
+}

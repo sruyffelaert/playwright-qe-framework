@@ -1,6 +1,13 @@
 import { test as base, expect } from '@playwright/test';
 
-export const test = base.extend<{ blockAds: void }>({
+type JsonObject = Record<string, any>;
+
+type FrameworkFixtures = {
+  blockAds: void;
+  environmentData: JsonObject;
+};
+
+export const test = base.extend<FrameworkFixtures>({
   blockAds: [async ({ context }, use) => {
     await context.route(
       /googleads|doubleclick\.net|googlesyndication\.com|googletagservices\.com/i,
@@ -11,6 +18,13 @@ export const test = base.extend<{ blockAds: void }>({
     });
     await use();
   }, { auto: true }],
+
+  environmentData: async ({}, use) => {
+    const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
+    const data = require(`../test-data/${env}/environment-data.${env}.json`);
+
+    await use(data);
+  },
 });
 
 export { expect };
