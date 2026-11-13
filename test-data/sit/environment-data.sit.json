@@ -1,0 +1,26 @@
+{
+  "Currency": "Rs.",
+  "PERMUTATION_TESTS": {
+    "Single Alphabet Letters": ["E", "F", "G", "H"],
+    "Single Digit Numbers": ["4", "5", "6"],
+    "Single Special Characters": ["@", "#", "%"]
+  },
+  "ACCOUNTS": {
+    "Registered account for login and logout": {
+      "email": "a@asdfasdf.com",
+      "displayName": "ba"
+    }
+  },
+  "PRODUCTS": {
+    "First in-stock product allowing multiple quantities": {
+      "search": "Blue Top",
+      "name": "Blue Top",
+      "price": 500
+    },
+    "Second in-stock product allowing multiple quantities": {
+      "search": "Men tshirt",
+      "name": "Men Tshirt",
+      "price": 400
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "Currency": "Rs.",
+  "PERMUTATION_TESTS": {
+    "Single Alphabet Letters": ["I", "J", "K", "L"],
+    "Single Digit Numbers": ["7", "8", "9"],
+    "Single Special Characters": ["*", "+", "?"]
+  },
+  "ACCOUNTS": {
+    "Registered account for login and logout": {
+      "email": "a@asdfasdf.com",
+      "displayName": "ba"
+    }
+  },
+  "PRODUCTS": {
+    "First in-stock product allowing multiple quantities": {
+      "search": "rust red linen saree",
+      "name": "Rust Red Linen Saree",
+      "price": 3500
+    },
+    "Second in-stock product allowing multiple quantities": {
+      "search": "colour blocked shirt",
+      "name": "Colour Blocked Shirt – Sky Blue",
+      "price": 849
+    }
+  }
+}

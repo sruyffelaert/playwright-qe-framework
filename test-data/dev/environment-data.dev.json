@@ -13,14 +13,14 @@
   },
   "PRODUCTS": {
     "First in-stock product allowing multiple quantities": {
-      "search": "Blue Top",
-      "name": "Blue Top",
-      "price": 500
+      "search": "graphic design men t shirt",
+      "name": "GRAPHIC DESIGN MEN T SHIRT - BLUE",
+      "price": 1389
     },
     "Second in-stock product allowing multiple quantities": {
-      "search": "Men tshirt",
-      "name": "Men Tshirt",
-      "price": 400
+      "search": "soft stretch jeans",
+      "name": "Soft Stretch Jeans",
+      "price": 799
     }
   }
 }
