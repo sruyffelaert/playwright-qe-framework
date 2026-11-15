@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test';
+import { HashicorpVault } from '../libraries/hashicorp-vault';
 
 type JsonObject = Record<string, any>;
 
@@ -7,7 +8,11 @@ type FrameworkFixtures = {
   environmentData: JsonObject;
 };
 
-export const test = base.extend<FrameworkFixtures>({
+type FrameworkWorkerFixtures = {
+  hashicorpVault: HashicorpVault;
+};
+
+export const test = base.extend<FrameworkFixtures, FrameworkWorkerFixtures>({
   blockAds: [async ({ context }, use) => {
     await context.route(
       /googleads|doubleclick\.net|googlesyndication\.com|googletagservices\.com/i,
@@ -25,6 +30,12 @@ export const test = base.extend<FrameworkFixtures>({
 
     await use(data);
   },
+
+  hashicorpVault: [async ({}, use) => {
+    const vault = new HashicorpVault();
+    await vault.authenticate();
+    await use(vault);
+  }, { scope: 'worker' }],
 });
 
 export { expect };

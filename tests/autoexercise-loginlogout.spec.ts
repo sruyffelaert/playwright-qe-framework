@@ -1,22 +1,17 @@
 import { test } from '@fixtures/fixtures';
-import process from 'node:process';
 import { HomePage } from '../pages/home/home-page';
 
-test('Login and log out verification', async ({ page, environmentData }) => {
+test('Login and log out verification', async ({ page, environmentData, hashicorpVault }) => {
   const account = environmentData.ACCOUNTS['Registered account for login and logout'];
-  const sitePassword = process.env.TEST_PASSWORD;
-
-  if (!sitePassword) {
-    throw new Error('TEST_PASSWORD environment variable is missing');
-  }
+  const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
 
   const homePage = new HomePage(page);
   await homePage.open();
   const loginPage = await homePage.navigateToSignupLogin();
 
   await loginPage.validateHeading('Login to your account');
-  await loginPage.fillEmail(account.email);
-  await loginPage.fillPassword(sitePassword);
+  await loginPage.fillEmail(username);
+  await loginPage.fillPassword(password);
   const authenticatedHomePage = await loginPage.navigateToLogin();
 
   await authenticatedHomePage.validateLoggedInUser(account.displayName);

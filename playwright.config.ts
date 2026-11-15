@@ -4,6 +4,25 @@ import path from 'node:path';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
+const environmentFile = `.env.${env}`;
+// dotenv preserves existing process variables by default for both file loads.
+dotenv.config({ path: path.resolve(__dirname, environmentFile) });
+
+const baseURL = process.env.BASE_URL;
+if (!baseURL?.trim()) {
+  throw new Error(`Missing BASE_URL for TEST_ENV=${env}. Set BASE_URL in ${environmentFile} or supply it as a process environment variable.`);
+}
+
+try {
+  const url = new URL(baseURL);
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error();
+  }
+} catch {
+  throw new Error(`Invalid BASE_URL for TEST_ENV=${env}. Use an absolute HTTP or HTTPS URL.`);
+}
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -30,7 +49,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     screenshot: 'only-on-failure',
-    baseURL: 'https://automationexercise.com',
+    baseURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

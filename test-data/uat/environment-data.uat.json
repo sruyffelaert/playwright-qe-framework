@@ -7,7 +7,7 @@
   },
   "ACCOUNTS": {
     "Registered account for login and logout": {
-      "email": "a@asdfasdf.com",
+      "vaultSecret": "test-account",
       "displayName": "ba"
     }
   },
