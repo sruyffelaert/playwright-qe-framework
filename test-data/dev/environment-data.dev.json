@@ -8,7 +8,7 @@
   "ACCOUNTS": {
     "Registered account for login and logout": {
       "vaultSecret": "test-account",
-      "displayName": "ba"
+      "displayName": "devuser"
     }
   },
   "PRODUCTS": {
