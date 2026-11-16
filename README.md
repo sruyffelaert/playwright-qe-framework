@@ -50,7 +50,7 @@ The actual `.env` files are Git-ignored. Only `.env.example`, `.env.dev.example`
 
 `libraries/hashicorp-vault.ts` is independent of Playwright. It uses native fetch, Userpass at `auth/userpass`, and KV v2 at `secret`. It does not load dotenv or depend on the environment-data fixture.
 
-The optional, worker-scoped `hashicorpVault` fixture authenticates when first requested. It reuses one client and cached token per worker. Before secret reads, the library checks Vault's returned `lease_duration`. Renewable tokens are renewed on demand in the final 10% of their TTL, at most 30 seconds before expiration, through `auth/token/renew-self`. An expired token, a failed renewal, or an invalid renewal response causes a new Userpass login. Valid nonrenewable tokens are reused until expiry. TTL zero is treated as nonexpiring. Concurrent reads share an in-flight token update. There is no background renewal loop or lifecycle timer.
+The optional, worker-scoped `hashicorpVault` fixture authenticates when first requested. It reuses one client and cached token per worker. Before secret reads, the library checks Vault's returned `lease_duration`. Renewable tokens are renewed on demand within 30 seconds of expiration through `auth/token/renew-self`. For leases of 30 seconds or less, the renewal window is 10% of the TTL. An expired token, a failed renewal, or an invalid renewal response causes a new Userpass login. Valid nonrenewable tokens are reused until expiry. TTL zero is treated as nonexpiring. Operations run sequentially within each worker; the library has no concurrency coordination. There is no background renewal loop or lifecycle timer.
 
 The login/logout case uses this mapping:
 
@@ -106,7 +106,7 @@ These checks use the existing Playwright runner and no additional dependencies:
 npx playwright test --config verification/playwright.config.ts
 ```
 
-Mocked Vault responses and a controlled clock cover token reuse, TTLs, renewal, expiry, reauthentication, concurrent reads, and safe failures without a live Vault server. Environment checks isolate dotenv inputs and verify shared defaults, exported overrides, file selection, and missing URLs. The password-input check uses self-contained HTML in Chromium, Firefox, and WebKit. These checks use a separate output directory and do not replace the functional HTML report.
+Five mocked lifecycle tests use simulated time to cover token caching, renewal, expiration, renewal failure, and sanitized authentication/read errors without a live Vault server. Environment checks isolate dotenv inputs and verify shared defaults, exported overrides, file selection, and missing URLs. The password-input check uses self-contained HTML in Chromium, Firefox, and WebKit. These checks use a separate output directory and do not replace the functional HTML report.
 
 Type-check with an available TypeScript compiler (`tsc --noEmit`). The project does not add a compiler dependency; a temporary compiler can be used with `npm exec --yes --package typescript -- tsc --noEmit`.
 
