@@ -1,18 +1,11 @@
-type VaultAuthentication = {
-  client_token: string;
-  lease_duration: number;
-  renewable?: boolean;
-};
-
 export class HashicorpVault {
   private readonly address: string;
   private readonly username: string;
   private readonly password: string;
   private readonly environment: string;
   private token?: string;
-  private renewable = false;
   private expiresAt = 0;
-  private renewAt = 0;
+  private static readonly REQUEST_TIMEOUT_MS = 10000;
 
   constructor() {
     const address = process.env.VAULT_ADDR;
@@ -44,20 +37,7 @@ export class HashicorpVault {
 
   async authenticate() {
     if (this.token && Date.now() < this.expiresAt) {
-      if (!this.renewable || Date.now() < this.renewAt) {
-        return;
-      }
-      try {
-        const response = await this.request(
-          'auth/token/renew-self',
-          { method: 'POST', headers: { 'X-Vault-Token': this.token } },
-          'token renewal',
-        );
-        this.cacheAuthentication(response?.auth);
-        return;
-      } catch {
-        // Renewal can be denied at the maximum lifetime; obtain a fresh login.
-      }
+      return;
     }
 
     // Never reuse the old token if obtaining a replacement fails.
@@ -71,20 +51,15 @@ export class HashicorpVault {
       },
       'Userpass authentication',
     );
-    this.cacheAuthentication(response?.auth);
-  }
-
-  private cacheAuthentication(authentication: VaultAuthentication) {
+    const authentication = response?.auth;
     if (typeof authentication?.client_token !== 'string' || !authentication.client_token
       || !Number.isFinite(authentication.lease_duration) || authentication.lease_duration < 0) {
       throw new Error('Vault authentication response must contain an access token and a nonnegative numeric lease_duration.');
     }
-    const lifetime = authentication.lease_duration * 1000;
     this.token = authentication.client_token;
-    this.renewable = authentication.renewable ?? false;
-    this.expiresAt = lifetime === 0 ? Infinity : Date.now() + lifetime;
-    const renewalWindow = lifetime <= 30000 ? lifetime * 0.1 : 30000;
-    this.renewAt = this.expiresAt - renewalWindow;
+    this.expiresAt = authentication.lease_duration === 0
+      ? Infinity
+      : Date.now() + authentication.lease_duration * 1000;
   }
 
   async getSecret(name: string) {
@@ -111,10 +86,12 @@ export class HashicorpVault {
       response = await fetch(`${this.address}/v1/${apiPath}`, {
         ...options,
         redirect: 'error',
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(HashicorpVault.REQUEST_TIMEOUT_MS),
       });
     } catch {
-      throw new Error(`Vault ${operation} could not reach the server within 10 seconds. Check VAULT_ADDR, connectivity, and TLS configuration.`);
+      throw new Error(
+        `Vault ${operation} request failed (timeout: ${HashicorpVault.REQUEST_TIMEOUT_MS / 1000}s). Check VAULT_ADDR, connectivity, and TLS configuration.`
+      );
     }
     if (!response.ok) {
       throw new Error(`Vault ${operation} failed (HTTP ${response.status}). Check authentication, permissions, and the secret/${this.environment} path.`);

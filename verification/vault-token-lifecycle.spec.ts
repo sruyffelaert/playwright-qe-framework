@@ -37,13 +37,13 @@ test.afterEach(() => {
 
 test('token caching: multiple secret reads use a single authentication', async () => {
   replies.push(
-    { body: { auth: { client_token: 'token-a', lease_duration: 20, renewable: true } } },
+    { body: { auth: { client_token: 'token-a', lease_duration: 20 } } },
     { body: { data: { data: { username: 'synthetic-user', password: 'synthetic-value' } } } },
     { body: { data: { data: {} } } },
   );
   const vault = new HashicorpVault();
   const secret = await vault.getSecret('test-account');
-  now += 1000;
+  now += 19000;
   await vault.getSecret('test-account');
   expect(Object.keys(secret)).toEqual(['username', 'password']);
   expect(requests.map(request => request.path)).toEqual([
@@ -53,32 +53,10 @@ test('token caching: multiple secret reads use a single authentication', async (
   ]);
 });
 
-test('token renewal: subsequent reads use the renewed token and expiration', async () => {
+test('token expiration: an expired token triggers fresh authentication', async () => {
   replies.push(
-    { body: { auth: { client_token: 'token-a', lease_duration: 1200, renewable: true } } },
-    { body: { auth: { client_token: 'token-b', lease_duration: 1200, renewable: true } } },
-    { body: { data: { data: {} } } },
-    { body: { data: { data: {} } } },
-  );
-  const vault = new HashicorpVault();
-  await vault.authenticate();
-  now += 1180000;
-  await vault.getSecret('test-account');
-  now += 60000;
-  await vault.getSecret('test-account');
-  expect(requests.map(request => request.path)).toEqual([
-    '/v1/auth/userpass/login/synthetic-team',
-    '/v1/auth/token/renew-self',
-    '/v1/secret/data/sit/test-account',
-    '/v1/secret/data/sit/test-account',
-  ]);
-  expect(requests.slice(2).map(request => request.token)).toEqual(['token-b', 'token-b']);
-});
-
-test('token expiration: an expired nonrenewable token triggers fresh authentication', async () => {
-  replies.push(
-    { body: { auth: { client_token: 'token-a', lease_duration: 1200, renewable: false } } },
-    { body: { auth: { client_token: 'token-b', lease_duration: 1200, renewable: false } } },
+    { body: { auth: { client_token: 'token-a', lease_duration: 1200 } } },
+    { body: { auth: { client_token: 'token-b', lease_duration: 1200 } } },
     { body: { data: { data: {} } } },
   );
   const vault = new HashicorpVault();
@@ -93,33 +71,13 @@ test('token expiration: an expired nonrenewable token triggers fresh authenticat
   expect(requests[2].token).toBe('token-b');
 });
 
-test('renewal failure: failed renewal triggers fresh authentication', async () => {
-  replies.push(
-    { body: { auth: { client_token: 'token-a', lease_duration: 1200, renewable: true } } },
-    { body: {}, status: 403 },
-    { body: { auth: { client_token: 'token-b', lease_duration: 1200, renewable: true } } },
-    { body: { data: { data: {} } } },
-  );
-  const vault = new HashicorpVault();
-  await vault.authenticate();
-  now += 1180000;
-  await vault.getSecret('test-account');
-  expect(requests.map(request => request.path)).toEqual([
-    '/v1/auth/userpass/login/synthetic-team',
-    '/v1/auth/token/renew-self',
-    '/v1/auth/userpass/login/synthetic-team',
-    '/v1/secret/data/sit/test-account',
-  ]);
-  expect(requests[3].token).toBe('token-b');
-});
-
 test('error handling: authentication and read failures do not expose sensitive information', async () => {
   replies.push({ body: { errors: ['synthetic-secret-zero token-a'] }, status: 403 });
   const vault = new HashicorpVault();
   const authenticationError = await vault.authenticate().catch(error => error) as Error;
   expect(authenticationError.message).toContain('Userpass authentication failed (HTTP 403)');
   replies.push(
-    { body: { auth: { client_token: 'token-a', lease_duration: 1200, renewable: true } } },
+    { body: { auth: { client_token: 'token-a', lease_duration: 1200 } } },
     { body: { errors: ['synthetic-secret-zero token-a'] }, status: 403 },
   );
   const readError = await vault.getSecret('test-account').catch(error => error) as Error;

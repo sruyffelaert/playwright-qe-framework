@@ -50,7 +50,7 @@ The actual `.env` files are Git-ignored. Only `.env.example`, `.env.dev.example`
 
 `libraries/hashicorp-vault.ts` is independent of Playwright. It uses native fetch, Userpass at `auth/userpass`, and KV v2 at `secret`. It does not load dotenv or depend on the environment-data fixture.
 
-The optional, worker-scoped `hashicorpVault` fixture authenticates when first requested. It reuses one client and cached token per worker. Before secret reads, the library checks Vault's returned `lease_duration`. Renewable tokens are renewed on demand within 30 seconds of expiration through `auth/token/renew-self`. For leases of 30 seconds or less, the renewal window is 10% of the TTL. An expired token, a failed renewal, or an invalid renewal response causes a new Userpass login. Valid nonrenewable tokens are reused until expiry. TTL zero is treated as nonexpiring. Operations run sequentially within each worker; the library has no concurrency coordination. There is no background renewal loop or lifecycle timer.
+The optional, worker-scoped `hashicorpVault` fixture authenticates when first requested. It reuses one client and cached token per worker. Before secret reads, the library checks the cached expiration time derived from Vault's `lease_duration`. A valid token is reused until it expires; an expired token triggers a new Userpass login. TTL zero is treated as nonexpiring. Tokens are not renewed. Operations run sequentially within each worker, without concurrency coordination, background tasks, or lifecycle timers.
 
 The login/logout case uses this mapping:
 
@@ -61,9 +61,9 @@ const { username, password } = await hashicorpVault.getSecret(account.vaultSecre
 
 With SIT and the current `vaultSecret` value, this reads `secret/sit/test-account` through `/v1/secret/data/sit/test-account`. The secret's `username` must contain the application's login email; `password` must contain its matching password. The expected logged-in display name comes from environment data. The login case logs the user ID, but never its password. Vault's authentication account is separate from the application account.
 
-For the separate `qe-vault-local` project, map its `QE_VAULT_PASSWORD` to this project's `VAULT_PASSWORD` and use its team Userpass username. Its default address is `http://127.0.0.1:8200`. No root token or local Vault server is included here. The team's Vault policy must allow reading the selected secret paths and, for renewal, `auth/token/renew-self`.
+For the separate `qe-vault-local` project, map its `QE_VAULT_PASSWORD` to this project's `VAULT_PASSWORD` and use its team Userpass username. Its default address is `http://127.0.0.1:8200`. No root token or local Vault server is included here. The team's Vault policy must allow reading the selected secret paths.
 
-Authentication, renewal, and read errors do not include server response bodies, native connection details, credentials, or tokens. Failed renewal falls back to login; if login also fails, the read fails without using the old token. Secret-read errors are reported without blind retries: a 403 may represent an ACL denial or early token revocation. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login), [token renewal API](https://developer.hashicorp.com/vault/api-docs/auth/token#renew-a-token-self), and [KV v2 API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
+Authentication and read errors do not include server response bodies, native connection details, credentials, or tokens. If obtaining a replacement token fails, the read fails without using the expired token. Secret-read errors are reported without blind retries: a 403 may represent an ACL denial or early token revocation. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login) and [KV v2 API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
 
 ## Run functional scenarios
 
@@ -106,7 +106,7 @@ These checks use the existing Playwright runner and no additional dependencies:
 npx playwright test --config verification/playwright.config.ts
 ```
 
-Five mocked lifecycle tests use simulated time to cover token caching, renewal, expiration, renewal failure, and sanitized authentication/read errors without a live Vault server. Environment checks isolate dotenv inputs and verify shared defaults, exported overrides, file selection, and missing URLs. The password-input check uses self-contained HTML in Chromium, Firefox, and WebKit. These checks use a separate output directory and do not replace the functional HTML report.
+Three mocked lifecycle tests use simulated time to cover cached-token reuse through its lifetime, authentication after expiration, and sanitized authentication/read errors without a live Vault server. Environment checks isolate dotenv inputs and verify shared defaults, exported overrides, file selection, and missing URLs. The password-input check uses self-contained HTML in Chromium, Firefox, and WebKit. These checks use a separate output directory and do not replace the functional HTML report.
 
 Type-check with an available TypeScript compiler (`tsc --noEmit`). The project does not add a compiler dependency; a temporary compiler can be used with `npm exec --yes --package typescript -- tsc --noEmit`.
 
@@ -117,7 +117,7 @@ Type-check with an available TypeScript compiler (`tsc --noEmit`). The project d
 - `hashicorpVault` is optional and worker-scoped. A new worker, including a replacement after a failure, obtains its own client and token.
 - Local and CI runs use one worker to limit load on the public site. Local runs have no retries; CI has two. Screenshots capture failures; traces are collected on the first retry. HTML reports are in `playwright-report/`; individual artifacts are in `test-results/`.
 - Live tests require installed browsers, internet access, the public site, and valid environment data. Login additionally requires local Vault and matching application credentials. Mocked checks cannot establish live Vault availability or account suitability. Public-site timing and availability can cause unrelated failures; the framework does not retry mutations or self-heal.
-- Secret-read ACL failures and unexpected early token revocation are surfaced. No other Vault auth methods, providers, background renewal, global data fixture, or credential abstraction are implemented. Token timing uses the worker's local clock.
+- Secret-read ACL failures and unexpected early token revocation are surfaced. No other Vault auth methods, providers, token renewal, global data fixture, or credential abstraction are implemented. Token timing uses the worker's local clock.
 
 Reports and traces can contain application and form data; review them before sharing. Dependencies, credentials directories, ignored configuration, and generated reports are excluded from Git.
 

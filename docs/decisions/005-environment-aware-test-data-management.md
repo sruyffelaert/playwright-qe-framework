@@ -237,9 +237,9 @@ For SIT, this resolves to `secret/sit/test-account` through Vault's KV v2 API. T
 
 The standalone `HashicorpVault` class uses `VAULT_ADDR`, `VAULT_USERNAME`, and `VAULT_PASSWORD` for the team's Userpass authentication. These secret-zero credentials are separate from the retrieved application credentials. The client uses native fetch and has no Playwright or dotenv dependency. The existing optional, worker-scoped `hashicorpVault` fixture creates and authenticates one instance when first requested; it does not initialize for tests that do not request it.
 
-The client caches Vault's token, renewable flag, and expiration information in memory. It checks the returned `lease_duration` before secret reads. A renewable token is renewed through `auth/token/renew-self` within 30 seconds of expiration. For leases of 30 seconds or less, the renewal window is 10% of the TTL. Renewal updates the cached token and expiration from the returned metadata. Expired tokens and failed or malformed renewals trigger a fresh Userpass login. Valid nonrenewable tokens are reused until expiry; TTL zero is treated as nonexpiring. Operations run sequentially within each worker; no promise locking or request coalescing is implemented. There are no lifecycle timers, background tasks, or per-read logins while the token remains usable.
+The client caches Vault's token and its expiration time derived from the returned `lease_duration`. It checks expiration before secret reads, reuses a valid token until it expires, and performs a new Userpass login after expiration. TTL zero is treated as nonexpiring. Tokens are not renewed. Operations run sequentially within each worker. There are no percentage calculations, renewal thresholds, promise locks, lifecycle timers, or background tasks.
 
-Unsuccessful login or secret reads fail with sanitized operation and HTTP diagnostics, without response bodies, credentials, or tokens. If renewal and replacement login both fail, the old token is not used. A read-time 403 is reported rather than blindly retried because it can indicate insufficient policy or early revocation. Renewal requires the team's token policy to allow `auth/token/renew-self`. See [Vault token renewal](https://developer.hashicorp.com/vault/api-docs/auth/token#renew-a-token-self).
+Unsuccessful login or secret reads fail with sanitized operation and HTTP diagnostics, without response bodies, credentials, or tokens. If replacement login fails, the expired token is not used. A read-time 403 is reported rather than blindly retried because it can indicate insufficient policy or early revocation.
 
 Environment configuration, environment data, and Vault access remain independently selectable capabilities. Both optional fixtures use the environment configured by Playwright. The Vault client can also run independently when its caller supplies the environment variables.
 
@@ -251,7 +251,7 @@ Five functional scenarios cover quantities, multiple products, removal, contact 
 
 Both demonstrations are opt-in. `RUN_TDM_DEMO=1` enables the single nested-loop iteration test; `RUN_VAULT_DEMO=1` enables the single secret-presence test. The current demonstration permutations intentionally differ between environments so selection is visible in console output. Ordinary runs skip both demonstrations; the login/logout scenario still requires Vault.
 
-Focused verification includes five mocked lifecycle scenarios with simulated time: caching, renewal, expiration, renewal failure, and sanitized authentication/read errors. The existing environment-config and password-input checks remain separate. It uses the existing Playwright runner under `verification/`, with no added test framework or dependency. Live regression scenarios remain dependent on the application and local Vault.
+Focused verification includes three mocked lifecycle scenarios with simulated time: cached-token reuse, authentication after expiration, and sanitized authentication/read errors. The existing environment-config and password-input checks remain separate. It uses the existing Playwright runner under `verification/`, with no added test framework or dependency. Live regression scenarios remain dependent on the application and local Vault.
 
 ## 3. Alternatives Considered
 
@@ -333,11 +333,11 @@ The initial fixture exposes a flexible JSON object rather than enforcing a compr
 
 **Test environment availability**
 
-Successful execution depends on the required data existing in the selected environment. The login/logout case additionally requires a reachable Vault server, suitable read/renew policies, and credentials valid for the application. Mocked lifecycle checks do not prove live connectivity or account validity. The public demo site may also fail through availability or timing issues.
+Successful execution depends on the required data existing in the selected environment. The login/logout case additionally requires a reachable Vault server, suitable read policies, and credentials valid for the application. Mocked lifecycle checks do not prove live connectivity or account validity. The public demo site may also fail through availability or timing issues.
 
 **Vault scope and failure handling**
 
-Userpass and KV v2 are the supported Vault mechanisms. Other auth methods/providers and background renewal are not implemented. TTL calculations use the worker's local clock. A secret-read 403 is surfaced without automatic retry or guessing whether the token was revoked early. A shared global dataset is still deferred. ADR 004's limitation for nonblocking unexpected dialogs remains in effect.
+Userpass and KV v2 are the supported Vault mechanisms. Other auth methods/providers and token renewal are not implemented. TTL calculations use the worker's local clock. A secret-read 403 is surfaced without automatic retry or guessing whether the token was revoked early. A shared global dataset is still deferred. ADR 004's limitation for nonblocking unexpected dialogs remains in effect.
 
 ## 5. Decision Summary
 
