@@ -1,6 +1,6 @@
 type VaultAuthentication = {
   client_token: string;
-  lease_duration?: number;
+  lease_duration: number;
   renewable?: boolean;
   accessor?: string;
   policies?: string[];
@@ -12,6 +12,9 @@ export class HashicorpVault {
   private readonly password: string;
   private readonly environment: string;
   private authentication?: VaultAuthentication;
+  private expiresAt = 0;
+  private renewAt = 0;
+  private tokenUpdate?: Promise<void>;
 
   constructor() {
     const address = process.env.VAULT_ADDR;
@@ -42,10 +45,40 @@ export class HashicorpVault {
   }
 
   async authenticate() {
-    if (this.authentication) {
+    if (this.tokenUpdate) {
+      await this.tokenUpdate;
+      return;
+    }
+    if (this.authentication && Date.now() < this.expiresAt
+      && (!this.authentication.renewable || Date.now() < this.renewAt)) {
       return;
     }
 
+    this.tokenUpdate = this.updateAuthentication();
+    try {
+      await this.tokenUpdate;
+    } finally {
+      this.tokenUpdate = undefined;
+    }
+  }
+
+  private async updateAuthentication() {
+    if (this.authentication?.renewable && Date.now() < this.expiresAt) {
+      try {
+        const response = await this.request(
+          'auth/token/renew-self',
+          { method: 'POST', headers: { 'X-Vault-Token': this.authentication.client_token } },
+          'token renewal',
+        );
+        this.cacheAuthentication(response?.auth);
+        return;
+      } catch {
+        // Renewal can be denied at the maximum lifetime; obtain a fresh login.
+      }
+    }
+
+    // Never reuse the old token if obtaining a replacement fails.
+    this.authentication = undefined;
     const response = await this.request(
       `auth/userpass/login/${encodeURIComponent(this.username)}`,
       {
@@ -55,12 +88,19 @@ export class HashicorpVault {
       },
       'Userpass authentication',
     );
-    if (typeof response?.auth?.client_token !== 'string' || !response.auth.client_token) {
-      throw new Error('Vault Userpass authentication returned no access token.');
-    }
+    this.cacheAuthentication(response?.auth);
+  }
 
-    // Retain the token and lease metadata in memory; renewal is a future increment.
-    this.authentication = response.auth;
+  private cacheAuthentication(authentication: VaultAuthentication) {
+    if (typeof authentication?.client_token !== 'string' || !authentication.client_token
+      || !Number.isFinite(authentication.lease_duration) || authentication.lease_duration < 0) {
+      throw new Error('Vault authentication response must contain an access token and a nonnegative numeric lease_duration.');
+    }
+    const lifetime = authentication.lease_duration * 1000;
+    this.authentication = authentication;
+    this.expiresAt = lifetime === 0 ? Infinity : Date.now() + lifetime;
+    // Renew in the final 10% of the returned TTL, capped at 30 seconds early.
+    this.renewAt = this.expiresAt - Math.min(30000, lifetime * 0.1);
   }
 
   async getSecret(name: string) {
@@ -93,7 +133,7 @@ export class HashicorpVault {
       throw new Error(`Vault ${operation} could not reach the server within 10 seconds. Check VAULT_ADDR, connectivity, and TLS configuration.`);
     }
     if (!response.ok) {
-      throw new Error(`Vault ${operation} failed (HTTP ${response.status}). Check authentication, permissions, and the secret/${this.environment} path. Token renewal is not implemented.`);
+      throw new Error(`Vault ${operation} failed (HTTP ${response.status}). Check authentication, permissions, and the secret/${this.environment} path.`);
     }
     try {
       return await response.json();

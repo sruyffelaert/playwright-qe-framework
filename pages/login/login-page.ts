@@ -16,7 +16,8 @@ export class LoginPage {
     this.heading = page.getByRole('heading', { name: 'Login to your account', exact: true });
     this.emailInput = page.locator('form').filter({ hasText: 'Login' })
       .getByPlaceholder('Email Address', { exact: true });
-    this.passwordInput = page.getByRole('textbox', { name: 'Password', exact: true });
+    this.passwordInput = page.locator('form').filter({ hasText: 'Login' })
+      .getByPlaceholder('Password', { exact: true });
     this.loginButton = page.getByRole('button', { name: 'Login', exact: true });
     this.signupLoginLink = page.getByRole('link', { name: ' Signup / Login', exact: true });
     this.logoutLink = page.getByRole('link', { name: ' Logout', exact: true });

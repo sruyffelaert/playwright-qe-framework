@@ -1,6 +1,6 @@
 # Playwright QE Framework
 
-A TypeScript Playwright framework exercising the public [Automation Exercise](https://automationexercise.com) demo site. This first iteration carries over the shared fixture, browser configuration, exercise specifications, upload data, and five Automation Exercise tests from `playwright-dev`.
+A TypeScript Playwright framework for the public [Automation Exercise](https://automationexercise.com) site, with page objects, environment-specific test data, and optional HashiCorp Vault access.
 
 ## Setup
 
@@ -15,99 +15,124 @@ cp .env.sit.example .env.sit
 cp .env.uat.example .env.uat
 ```
 
-Configure the Vault connection as described below. The login/logout test selects the environment data account tagged `Registered account for login and logout`, reads the secret named by its `vaultSecret` field from the selected environment's Vault folder, uses the secret's `username` as the login email and its `password` for authentication, and logs only the user ID. Each initial account mapping references `test-account`. The secret must contain valid Automation Exercise credentials; the expected display name still comes from environment data. `TEST_PASSWORD` is no longer used by this test.
+Populate the shared `.env` with `TEST_ENV` and Vault connection settings. The login/logout scenario requires a reachable Vault server and a secret containing valid application credentials. The other four functional scenarios do not contact Vault.
 
-Environment variables supplied by a terminal or CI take precedence over `.env`. The other four application scenarios do not require Vault credentials.
+## Environment configuration
 
-## Run
+Playwright loads the shared `.env` first, then `.env.<environment>` for `BASE_URL`. An explicitly exported `TEST_ENV` takes precedence over `.env`; when neither supplies it, the default is DEV. Selection is case insensitive. Both dotenv loads preserve existing process variables, including an exported `BASE_URL`. Keep application URLs in the environment-specific files and shared Vault settings in `.env`.
 
-```sh
-npm test                 # All five scenarios in Chromium, Firefox, and WebKit
-npm run test:chromium    # Five scenarios in Chromium
-npm run test:headed      # Watch the browsers
-npm run test:ui          # Interactive Playwright runner
-npm run test:list        # List the 15 browser/test combinations
-npm run report          # Open the latest HTML report
+```dotenv
+# .env — replace the Vault placeholders locally
+TEST_ENV=DEV
+VAULT_ADDR=http://127.0.0.1:8200
+VAULT_USERNAME=your-team-vault-username
+VAULT_PASSWORD=replace-with-your-vault-userpass-password
+
+# .env.dev, .env.sit, and .env.uat each currently contain:
+BASE_URL=https://automationexercise.com
 ```
 
-To run the scenarios that do not require an account:
+`TEST_ENV` selects three corresponding resources:
+
+| Environment | Application configuration | Test data | Vault folder |
+|---|---|---|---|
+| DEV | `.env.dev` | `test-data/dev/environment-data.dev.json` | `secret/dev` |
+| SIT | `.env.sit` | `test-data/sit/environment-data.sit.json` | `secret/sit` |
+| UAT | `.env.uat` | `test-data/uat/environment-data.uat.json` | `secret/uat` |
+
+Environment JSON contains products, numeric prices, currency, account metadata, and demonstration permutations. Tests select descriptive tags and calculate totals from environment prices and scenario quantities. Account mappings contain `vaultSecret` and `displayName`; login email and password are obtained from Vault.
+
+Configuration fails clearly for a missing or invalid `BASE_URL`. The configuration check applies to demonstrations too. POMs navigate through Playwright's `use.baseURL`; application hosts are not hardcoded in page objects. The VS Code workspace settings do not override `TEST_ENV`, so extension runs use the shared `.env` default. Setting `playwright.env` explicitly in VS Code overrides that default.
+
+The actual `.env` files are Git-ignored. Only `.env.example`, `.env.dev.example`, `.env.sit.example`, and `.env.uat.example` are safe templates intended for publication.
+
+## Vault credentials and lifecycle
+
+`libraries/hashicorp-vault.ts` is independent of Playwright. It uses native fetch, Userpass at `auth/userpass`, and KV v2 at `secret`. It does not load dotenv or depend on the environment-data fixture.
+
+The optional, worker-scoped `hashicorpVault` fixture authenticates when first requested. It reuses one client and cached token per worker. Before secret reads, the library checks Vault's returned `lease_duration`. Renewable tokens are renewed on demand in the final 10% of their TTL, at most 30 seconds before expiration, through `auth/token/renew-self`. An expired token, a failed renewal, or an invalid renewal response causes a new Userpass login. Valid nonrenewable tokens are reused until expiry. TTL zero is treated as nonexpiring. Concurrent reads share an in-flight token update. There is no background renewal loop or lifecycle timer.
+
+The login/logout case uses this mapping:
+
+```ts
+const account = environmentData.ACCOUNTS['Registered account for login and logout'];
+const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
+```
+
+With SIT and the current `vaultSecret` value, this reads `secret/sit/test-account` through `/v1/secret/data/sit/test-account`. The secret's `username` must contain the application's login email; `password` must contain its matching password. The expected logged-in display name comes from environment data. The login case logs the user ID, but never its password. Vault's authentication account is separate from the application account.
+
+For the separate `qe-vault-local` project, map its `QE_VAULT_PASSWORD` to this project's `VAULT_PASSWORD` and use its team Userpass username. Its default address is `http://127.0.0.1:8200`. No root token or local Vault server is included here. The team's Vault policy must allow reading the selected secret paths and, for renewal, `auth/token/renew-self`.
+
+Authentication, renewal, and read errors do not include server response bodies, native connection details, credentials, or tokens. Failed renewal falls back to login; if login also fails, the read fails without using the old token. Secret-read errors are reported without blind retries: a 403 may represent an ACL denial or early token revocation. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login), [token renewal API](https://developer.hashicorp.com/vault/api-docs/auth/token#renew-a-token-self), and [KV v2 API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
+
+## Run functional scenarios
+
+```sh
+npm test                    # Five functional scenarios across three browsers; demos skipped
+npm run test:chromium       # Functional scenarios in Chromium; demos skipped
+npm run test:headed         # Watch browsers
+npm run test:ui             # Interactive runner
+npm run test:list           # List tests, including optional demonstrations
+npm run report             # Open the latest HTML report
+
+TEST_ENV=sit npx playwright test --project=chromium --headed
+TEST_ENV=uat npx playwright test --project=chromium --headed
+```
+
+To run the four functional scenarios that do not need Vault:
 
 ```sh
 npm test -- --grep-invert 'Login and log out'
 ```
 
-## Environment application URLs
+The five scenarios validate multiple quantities, two different products, cart removal, contact form submission with an attachment, and login/logout. Products differ by environment; scenario quantities remain in their tests. Application tests instantiate `HomePage` directly and use verified destination POMs and scoped product row/tile objects.
 
-Playwright first loads the shared `.env` for Vault connectivity, authentication, and the optional `TEST_ENV` selector. It then loads `.env.<env>` for `BASE_URL`, defaulting to `.env.dev`. Both dotenv loads preserve explicitly supplied process variables, including values supplied by the terminal, CI, or VS Code's `playwright.env` setting. Keep `BASE_URL` in the environment-specific files rather than the shared `.env`.
+## Optional demonstrations
 
-```dotenv
-# .env.dev
-BASE_URL=https://automationexercise.com
-```
-
-DEV, SIT, and UAT currently use `https://automationexercise.com`. Update the corresponding `.env.<env>` when a separate application environment becomes available, or supply `BASE_URL` through the process environment. Configuration fails clearly before tests start when `BASE_URL` is missing, empty, or invalid; there is no fallback to the DEV site.
-
-`TEST_ENV` accepts uppercase or lowercase values and selects the application URL file, environment-data JSON, and Vault secret folder. Environment JSON contains test data, not application URLs. The existing fixtures and page objects are unchanged: `HomePage.open()` navigates to `/` using Playwright's configured `use.baseURL`.
-
-The actual `.env`, `.env.dev`, `.env.sit`, and `.env.uat` files are Git-ignored. Their `.example` templates contain only public URLs, blank settings, or explicit placeholders and may be tracked.
-
-Validate configuration and list tests without executing them:
+Both demonstrations are skipped by default and retain one test case each. Enable them explicitly:
 
 ```sh
-TEST_ENV=dev npx playwright test --list
+RUN_TDM_DEMO=1 TEST_ENV=SIT npx playwright test tests/tdm-iteration-demo.spec.ts --project=chromium --reporter=list
+RUN_VAULT_DEMO=1 TEST_ENV=SIT npx playwright test tests/vault-integration-demo.spec.ts --project=chromium --reporter=list
 ```
 
-Run one headed browser project:
+The TDM test logs descriptive dataset names and values using two native loops. The Vault test retrieves `test-account` and verifies nonempty username and password strings through boolean assertions, without printing their values. The normal login/logout case requests Vault independently of `RUN_VAULT_DEMO`.
+
+## Focused verification
+
+These checks use the existing Playwright runner and no additional dependencies:
 
 ```sh
-TEST_ENV=dev npx playwright test --project=chromium --headed
-TEST_ENV=sit npx playwright test --project=chromium --headed
-TEST_ENV=uat npx playwright test --project=chromium --headed
+npx playwright test --config verification/playwright.config.ts
 ```
 
-The missing-URL check also applies to data-only and Vault-only demonstrations using this Playwright config.
+Mocked Vault responses and a controlled clock cover token reuse, TTLs, renewal, expiry, reauthentication, concurrent reads, and safe failures without a live Vault server. Environment checks isolate dotenv inputs and verify shared defaults, exported overrides, file selection, and missing URLs. The password-input check uses self-contained HTML in Chromium, Firefox, and WebKit. These checks use a separate output directory and do not replace the functional HTML report.
 
-## Optional Vault demonstration
+Type-check with an available TypeScript compiler (`tsc --noEmit`). The project does not add a compiler dependency; a temporary compiler can be used with `npm exec --yes --package typescript -- tsc --noEmit`.
 
-`hashicorpVault` is an optional, worker-scoped fixture. Only tests that request it initialize the standalone `HashicorpVault` client. The fixture authenticates once using `VAULT_USERNAME` and `VAULT_PASSWORD` and reuses the in-memory token for secret reads in that worker. The login/logout test requests this fixture and requires Vault; the other application scenarios do not contact Vault. The separate demonstration below remains explicitly opt-in.
+## Fixtures, diagnostics, and limitations
 
-Set `VAULT_ADDR`, `VAULT_USERNAME`, and `VAULT_PASSWORD` in your ignored `.env` file or process environment. The Playwright config loads the shared `.env` and selected `.env.<env>`; the library and fixture do not load them again. `TEST_ENV` defaults to `DEV` and selects the lowercase `dev`, `sit`, or `uat` folder. Do not put credentials or tokens in source files or environment JSON.
+- `blockAds` is automatic and test-scoped. It blocks advertising requests and logs JavaScript dialog types/messages without resolving them, per ADR 004. Unexpected dialogs fail through timeouts when they block an interaction; nonblocking dialogs may only be logged.
+- `environmentData` is optional and test-scoped. It exposes the selected JSON directly through Node's cached `require()`, with loose generic typing.
+- `hashicorpVault` is optional and worker-scoped. A new worker, including a replacement after a failure, obtains its own client and token.
+- Local and CI runs use one worker to limit load on the public site. Local runs have no retries; CI has two. Screenshots capture failures; traces are collected on the first retry. HTML reports are in `playwright-report/`; individual artifacts are in `test-results/`.
+- Live tests require installed browsers, internet access, the public site, and valid environment data. Login additionally requires local Vault and matching application credentials. Mocked checks cannot establish live Vault availability or account suitability. Public-site timing and availability can cause unrelated failures; the framework does not retry mutations or self-heal.
+- Secret-read ACL failures and unexpected early token revocation are surfaced. No other Vault auth methods, providers, background renewal, global data fixture, or credential abstraction are implemented. Token timing uses the worker's local clock.
 
-For the separate `qe-vault-local` project, map its `QE_VAULT_PASSWORD` setting to this project's `VAULT_PASSWORD` and use its team Userpass username. Its default address is `http://127.0.0.1:8200`. The development root token is not needed by this client.
-
-The server must provide Userpass at `auth/userpass` and KV v2 at `secret`. For example, `TEST_ENV=SIT` reads the logical path `secret/sit/test-account` using the API path `/v1/secret/data/sit/test-account`. That secret must contain both `username` and `password`; the Vault authentication account is separate from these application credentials. The client retains authentication metadata but does not renew or automatically refresh expired tokens. HTTP and connection errors are reported without response bodies, credentials, or tokens. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login) and [KV v2 read API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
-
-The demonstration is skipped unless explicitly enabled. Run it alone in one browser project:
-
-```sh
-RUN_VAULT_DEMO=1 TEST_ENV=DEV npx playwright test tests/vault-integration-demo.spec.ts --project=chromium --reporter=list
-```
-
-It retrieves `test-account` and checks that both credential fields are nonempty strings without printing their values. The standalone library can also be used outside Playwright; its caller must supply the environment variables. No local Vault server is included in this repository.
-
-## Coverage
-
-- Add four units of Blue Top and verify quantity and total.
-- Add two different products and verify their quantities and totals.
-- Remove one product and verify the remaining cart contents.
-- Submit the contact form with a file attachment and accept its confirmation dialog.
-- Log in with a registered account, verify the displayed name, and log out.
+Reports and traces can contain application and form data; review them before sharing. Dependencies, credentials directories, ignored configuration, and generated reports are excluded from Git.
 
 ## Layout
 
 ```text
-fixtures/              Shared automatic ad-blocking fixture and Playwright exports
-tests/                Automation Exercise specs only
-test-data/uploads/    Sample contact-form attachment
-docs/exercises/       Original scenario specifications
-playwright.config.ts  Browser projects, parallelism, retries, and reporting
+fixtures/              Shared fixtures and Playwright exports
+libraries/             Standalone HashiCorp Vault client
+pages/                 Page objects and scoped row/tile objects
+tests/                 Five functional specs and two opt-in demonstrations
+verification/          Mocked lifecycle/config checks and browser locator checks
+test-data/             DEV/SIT/UAT JSON and upload data
+docs/                  Architecture decisions, POM guidance, scenario specifications
+playwright.config.ts   Shared/environment dotenv loading, browsers, reporting
 ```
-
-Tests use isolated browser contexts. All five specs construct `HomePage` directly and follow returned destination POMs. Locators, control interactions, and assertions belong to the page objects. POM routes use `use.baseURL` in `playwright.config.ts`. The shared fixture blocks advertising requests to reduce interference. Local and CI runs default to one worker to limit load on the public demo site. CI rejects `test.only` and retries failures twice. HTML reports are written to `playwright-report/`; traces are collected on the first retry. Generated results are ignored by Git. Use `npm run report` to open the HTML report.
-
-These are live end-to-end tests: internet access, a reachable demo site, installed Playwright browsers, and valid login credentials are required. Traces and reports can contain account or form data; review them before sharing.
-
-Secrets, credentials directories, dependencies, and generated reports are excluded from Git. Only `.env.example` is intended for publication. No remote repository is configured by this project.
 
 ## Copyright and Usage
 

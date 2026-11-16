@@ -1,5 +1,1 @@
-{
-  "playwright.env": {
-    "TEST_ENV": "SIT"
-  }
-}
+{}

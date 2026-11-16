@@ -45,7 +45,7 @@ test-data/
     environment-data.uat.json
 ```
 
-The active environment is identified using `TEST_ENV`, defaulting to `DEV`.
+The active environment is identified using `TEST_ENV`. Playwright loads the shared `.env` first, then `.env.<environment>` for `BASE_URL`. An exported process variable takes precedence over file values. The `.env` value selects the default environment; if neither source supplies `TEST_ENV`, it defaults to `DEV`. Selection is case insensitive. VS Code workspace settings do not impose an environment override.
 
 For example:
 
@@ -54,7 +54,7 @@ const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
 const data = require(`../test-data/${env}/environment-data.${env}.json`);
 ```
 
-The current implementation uses the DEV dataset. Additional environments can be supported by supplying their corresponding files.
+DEV, SIT, and UAT each have an environment-data JSON file, an ignored `.env.<environment>` containing `BASE_URL`, and a corresponding lowercase Vault secret folder. All three application URL examples currently point to the public Automation Exercise site. Application URLs and Vault connection settings are configuration, not JSON test data. The shared `.env` holds Vault connectivity and team authentication; safe `.example` files document the settings. Missing or invalid `BASE_URL` fails configuration before tests start. The config loads dotenv; fixtures and the Vault library do not initialize it again.
 
 I have initially chosen one JSON file per environment. I do not consider this a permanent restriction; additional files can be introduced when actual application requirements justify them.
 
@@ -111,7 +111,7 @@ An example product mapping is:
 
 If an inventory item becomes unavailable, engineers can replace its environment mapping with another suitable product without modifying the test.
 
-The same principle applies to accounts and users. If the account or username assigned to a particular test requirement changes, its environment-specific mapping can be updated independently of the test logic.
+The same principle applies to accounts. Environment data maps the descriptive account requirement to a `vaultSecret` name and expected `displayName`. Vault stores the application login email as `username` and its matching `password`. The secret reference or its values can change independently of the test logic.
 
 The replacement must continue to satisfy the requirements described by the tag.
 
@@ -211,23 +211,47 @@ for (const groupName in environmentData.PERMUTATION_TESTS) {
 
 I prefer this straightforward approach because engineers can understand and work with the JSON structure without learning a proprietary data-access API.
 
-### 2.6 Credentials and Future Vault Integration
+### 2.6 Vault Credentials and Token Lifecycle
 
-I distinguish test data from authentication secrets.
+Account environment data contains a reference and nonsecret validation metadata:
 
-Account identifiers and other nonsecret account information may be stored in environment data, but passwords and sensitive credentials must be obtained separately.
+```json
+{
+  "ACCOUNTS": {
+    "Registered account for login and logout": {
+      "vaultSecret": "test-account",
+      "displayName": "ba"
+    }
+  }
+}
+```
 
-The existing framework retrieves its test password from an environment variable.
+The login/logout case requests both optional fixtures and reads the named secret:
 
-My longer-term architecture supports three independently selectable capabilities:
+```typescript
+const account = environmentData.ACCOUNTS['Registered account for login and logout'];
+const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
+```
 
-- Environment configuration without managed test data or vault access.
-- Environment configuration with vault access.
-- Environment configuration with managed test data, optionally combined with vault access.
+For SIT, this resolves to `secret/sit/test-account` through Vault's KV v2 API. The username is used as the login email, and the password is passed to the POM. The expected display name comes from JSON. The case logs the user ID, but never the password. Application credentials are stored in Vault rather than JSON or `.env`.
 
-Shared environment configuration should not be initialized redundantly when more than one capability is used.
+The standalone `HashicorpVault` class uses `VAULT_ADDR`, `VAULT_USERNAME`, and `VAULT_PASSWORD` for the team's Userpass authentication. These secret-zero credentials are separate from the retrieved application credentials. The client uses native fetch and has no Playwright or dotenv dependency. The existing optional, worker-scoped `hashicorpVault` fixture creates and authenticates one instance when first requested; it does not initialize for tests that do not request it.
 
-Vault integration and the associated shared configuration design will be implemented separately, when required.
+The client caches Vault's token and authentication metadata in memory. It checks the returned `lease_duration` before secret reads. A renewable token is renewed through `auth/token/renew-self` in the final 10% of its TTL, at most 30 seconds early. Renewal updates the cached token and expiration from the returned metadata. Expired tokens and failed or malformed renewals trigger a fresh Userpass login. Valid nonrenewable tokens are reused until expiry; TTL zero is treated as nonexpiring. Concurrent reads share an in-flight token update. There are no lifecycle timers, background tasks, or per-read logins while the token remains usable.
+
+Unsuccessful login or secret reads fail with sanitized operation and HTTP diagnostics, without response bodies, credentials, or tokens. If renewal and replacement login both fail, the old token is not used. A read-time 403 is reported rather than blindly retried because it can indicate insufficient policy or early revocation. Renewal requires the team's token policy to allow `auth/token/renew-self`. See [Vault token renewal](https://developer.hashicorp.com/vault/api-docs/auth/token#renew-a-token-self).
+
+Environment configuration, environment data, and Vault access remain independently selectable capabilities. Both optional fixtures use the environment configured by Playwright. The Vault client can also run independently when its caller supplies the environment variables.
+
+### 2.7 Current Fixtures and Demonstrations
+
+The automatic, test-scoped `blockAds` fixture preserves advertising filters and the logging-only dialog behavior defined by ADR 004. The optional, test-scoped `environmentData` fixture exposes JSON directly through `require()`. The optional, worker-scoped `hashicorpVault` fixture owns the authenticated client. Tests still construct POMs directly; fixtures do not inject page objects.
+
+Five functional scenarios cover quantities, multiple products, removal, contact form upload, and login/logout. Environment data supplies the cart products/prices and account metadata. Contact Us uses scenario-owned form inputs. The login/logout case retrieves credentials from Vault.
+
+Both demonstrations are opt-in. `RUN_TDM_DEMO=1` enables the single nested-loop iteration test; `RUN_VAULT_DEMO=1` enables the single secret-presence test. The current demonstration permutations intentionally differ between environments so selection is visible in console output. Ordinary runs skip both demonstrations; the login/logout scenario still requires Vault.
+
+Focused verification uses mocked Vault responses and a controlled clock, isolated environment-config inputs, and self-contained password-input HTML. It uses the existing Playwright runner under `verification/`, with no added test framework or dependency. Live regression scenarios remain dependent on the application and local Vault.
 
 ## 3. Alternatives Considered
 
@@ -309,7 +333,11 @@ The initial fixture exposes a flexible JSON object rather than enforcing a compr
 
 **Test environment availability**
 
-Successful execution depends on the required data existing in the selected environment.
+Successful execution depends on the required data existing in the selected environment. The login/logout case additionally requires a reachable Vault server, suitable read/renew policies, and credentials valid for the application. Mocked lifecycle checks do not prove live connectivity or account validity. The public demo site may also fail through availability or timing issues.
+
+**Vault scope and failure handling**
+
+Userpass and KV v2 are the supported Vault mechanisms. Other auth methods/providers and background renewal are not implemented. TTL calculations use the worker's local clock. A secret-read 403 is surfaced without automatic retry or guessing whether the token was revoked early. A shared global dataset is still deferred. ADR 004's limitation for nonblocking unexpected dialogs remains in effect.
 
 ## 5. Decision Summary
 
