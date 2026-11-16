@@ -69,14 +69,14 @@ Authentication and read errors do not include server response bodies, native con
 
 **Early token revocation:** If Vault revokes a token before its reported expiration, secret retrieval fails with the returned HTTP error. The library does not invalidate the cached token or automatically reauthenticate because an HTTP 403 may indicate insufficient permissions rather than token revocation. Subsequent requests may continue failing until the cached token expires or a new worker authenticates.
 
-## Run functional scenarios
+## Run tests
 
 ```sh
-npm test                    # Five functional scenarios across three browsers; demos skipped
-npm run test:chromium       # Functional scenarios in Chromium; demos skipped
+npm test                    # Functional and data-driven cases across three browsers; Vault demo skipped
+npm run test:chromium       # Functional and data-driven cases in Chromium
 npm run test:headed         # Watch browsers
 npm run test:ui             # Interactive runner
-npm run test:list           # List tests, including optional demonstrations
+npm run test:list           # List all registered tests, including the optional Vault demonstration
 npm run report             # Open the latest HTML report
 
 TEST_ENV=sit npx playwright test --project=chromium --headed
@@ -86,21 +86,44 @@ TEST_ENV=uat npx playwright test --project=chromium --headed
 To run the four functional scenarios that do not need Vault:
 
 ```sh
-npm test -- --grep-invert 'Login and log out'
+npx playwright test autoexercise- --grep-invert 'Login and log out'
 ```
 
-The five scenarios validate multiple quantities, two different products, cart removal, contact form submission with an attachment, and login/logout. Products differ by environment; scenario quantities remain in their tests. Application tests instantiate `HomePage` directly and use verified destination POMs and scoped product row/tile objects.
+The five functional scenarios validate multiple quantities, two different products, cart removal, contact form submission with an attachment, and login/logout. Their scenario quantities remain in the tests. The data-driven demonstrations additionally use environment-specific purchase quantities and search variations. Application tests instantiate `HomePage` directly and use verified destination POMs and scoped product row/tile objects.
 
-## Optional demonstrations
+## Data-driven iteration demonstrations
 
-Both demonstrations are skipped by default and retain one test case each. Enable them explicitly:
+`tests/data-driven-testing-example-cases.spec.ts` demonstrates four patterns using `PURCHASE_QUANTITIES` and `PRODUCT_SEARCH_VARIATIONS` from the selected environment:
+
+| Pattern | Current tests per browser | Guidance |
+|---|---:|---|
+| Outer purchase-group loop with an inner quantity loop | 3 | Recommended: each group is independent; additions within that group intentionally share a cart and validate their combined quantity and price. |
+| Outer search-description loop | 3 | Recommended: each search variation is an independent test with its own setup, teardown, result, and artifacts. |
+| Search loop inside one test | 1 | Intentionally discouraged for independent permutations: the first failure stops later variations, and all variations share one result and retry. |
+| Search loop inside one test with `test.step(description, ...)` | 1 | Intentionally discouraged for independent permutations: named steps improve diagnostics but do not provide isolation, independent results, or continuation after failure. |
+
+`getEnvironmentData()` runs during discovery to register the outer-loop cases with descriptive group/variation names. Adding a group or search variation to the dataset registers another independent test. A failed independent case does not ordinarily prevent the other cases from running; retrying it does not repeat successful independent cases. Within each purchase case, quantities are dependent operations whose running sum is the assertion target. Quantity values are environment-specific here because that is the demonstration's testing requirement, while other scenarios may keep quantities as local constants.
+
+These data-driven examples run normally without an opt-in flag. With the current datasets, each environment registers 14 tests per browser: five functional scenarios, eight data-driven cases, and one opt-in Vault test. Across Chromium, Firefox, and WebKit that is 42 registered tests, with 39 enabled and three Vault-demo skips by default.
+
+Run the demonstration spec in one browser and one worker:
 
 ```sh
-RUN_TDM_DEMO=1 TEST_ENV=SIT npx playwright test tests/tdm-iteration-demo.spec.ts --project=chromium --reporter=list
+TEST_ENV=DEV npx playwright test tests/data-driven-testing-example-cases.spec.ts --project=chromium --workers=1 --headed
+# Use TEST_ENV=SIT or TEST_ENV=UAT for the other datasets.
+```
+
+DEV search inputs are `soft stretch jeans`, `SOFT STRETCH JEANS`, and `soft stretch`; all expect the exact product name `Soft Stretch Jeans`. SIT searches for Blue Top, and UAT searches for Rust Red Linen Saree. The full-name, uppercase, and partial inputs exercise different search behaviors while tile selection and validation use the exact `expectedProduct` from data.
+
+## Optional Vault demonstration
+
+The separate Vault demonstration is skipped unless explicitly enabled:
+
+```sh
 RUN_VAULT_DEMO=1 TEST_ENV=SIT npx playwright test tests/vault-integration-demo.spec.ts --project=chromium --reporter=list
 ```
 
-The TDM test logs descriptive dataset names and values using two native loops. The Vault test retrieves `test-account` and verifies nonempty username and password strings through boolean assertions, without printing their values. The normal login/logout case requests Vault independently of `RUN_VAULT_DEMO`.
+It retrieves `test-account` and verifies nonempty username and password strings through boolean assertions, without printing their values. The normal login/logout case requests Vault independently of `RUN_VAULT_DEMO`.
 
 ## Focused verification
 
@@ -117,7 +140,7 @@ Type-check with an available TypeScript compiler (`tsc --noEmit`). The project d
 ## Fixtures, diagnostics, and limitations
 
 - `blockAds` is automatic and test-scoped. It blocks advertising requests and logs JavaScript dialog types/messages without resolving them, per ADR 004. Unexpected dialogs fail through timeouts when they block an interaction; nonblocking dialogs may only be logged.
-- `environmentData` is optional and test-scoped. It calls the exported `getEnvironmentData()` function in `fixtures/fixtures.ts`, which returns the selected JSON directly through Node's cached `require()`, with loose generic typing. The same synchronous function can be called independently of fixture execution, including during future test discovery after Playwright loads environment configuration. No discovery-time test generation is implemented.
+- `environmentData` is optional and test-scoped. It calls the exported `getEnvironmentData()` function in `fixtures/fixtures.ts`, which returns the selected JSON directly through Node's cached `require()`, with loose generic typing. The same synchronous function can be called independently of fixture execution, including during discovery after Playwright loads environment configuration. The outer loops in the data-driven spec use it to register independent cases before fixtures execute.
 - `hashicorpVault` is optional and worker-scoped. A new worker, including a replacement after a failure, obtains its own client and token.
 - Local and CI runs use one worker to limit load on the public site. Local runs have no retries; CI has two. Screenshots capture failures; traces are collected on the first retry. HTML reports are in `playwright-report/`; individual artifacts are in `test-results/`.
 - Live tests require installed browsers, internet access, the public site, and valid environment data. Login additionally requires local Vault and matching application credentials. Mocked checks cannot establish live Vault availability or account suitability. Public-site timing and availability can cause unrelated failures; the framework does not retry mutations or self-heal.
@@ -131,7 +154,7 @@ Reports and traces can contain application and form data; review them before sha
 fixtures/              Shared fixtures and Playwright exports
 libraries/             Standalone HashiCorp Vault client
 pages/                 Page objects and scoped row/tile objects
-tests/                 Five functional specs and two opt-in demonstrations
+tests/                 Five functional specs, four data-driven patterns, one opt-in Vault demo
 verification/          Mocked lifecycle/config checks and browser locator checks
 test-data/             DEV/SIT/UAT JSON and upload data
 docs/                  Architecture decisions, POM guidance, scenario specifications

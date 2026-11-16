@@ -27,7 +27,7 @@ The architecture is based on four principles:
 1. Tests reference data through descriptive, meaningful tags.
 2. Environment-specific data is maintained separately from test scenarios.
 3. Data is loaded into memory and accessed through its native JSON structure.
-4. Tests request the data fixture only when needed.
+4. Tests request the data fixture when executing with environment data; discovery-time parameterization uses the same exported loader.
 
 ### 2.1 Environment-Specific Data
 
@@ -140,9 +140,9 @@ Information that may differ between environments, including:
 
 Information determined by the scenario rather than the environment, including:
 
-- Quantities selected by a test.
+- Scenario-owned quantities that are deliberately constant across environments.
 - Generic form inputs.
-- Test permutations and boundary values.
+- Permutations and boundary values shared by the testing requirement.
 - Expected results derived from scenario behavior.
 
 For example, a test may select a product from environment data while defining its desired quantity locally:
@@ -164,6 +164,8 @@ await productRow.validateTotal(
 ```
 
 This avoids hardcoding environment-dependent prices while preserving scenario-specific test logic.
+
+Quantities are not inherently environment-dependent or environment-independent; their classification follows the testing requirement. The data-driven purchase demonstration deliberately stores different `PURCHASE_QUANTITIES` arrays for DEV, SIT, and UAT. Its test adds every quantity in a named group to the same cart and validates the accumulated quantity and price. Those additions are related operations within one business scenario. `PRODUCT_SEARCH_VARIATIONS` separately maps descriptive search cases to `search` and exact `expectedProduct` values.
 
 I also intend to support a separate global dataset for reusable, environment-independent data. That capability will follow the same general approach but does not need to be implemented as part of the initial environment-data fixture.
 
@@ -191,7 +193,7 @@ I want JSON data to remain accessible through ordinary JavaScript and TypeScript
 
 The exported synchronous `getEnvironmentData()` function in `fixtures/fixtures.ts` centralizes selection and loading. The existing `environmentData` fixture calls it and passes its result directly to `use()`. Node.js loads the JSON structure through `require()`, which provides module caching within the process; the function adds no transformations or separate cache.
 
-The function is callable independently of fixture execution, including during future Playwright test discovery after environment configuration has loaded. It reads `TEST_ENV` at call time, defaults to DEV, and handles environment names case-insensitively. It does not initialize dotenv, Vault, or browser fixtures. Discovery-time loops or generated test cases are not implemented in this increment.
+The function is callable independently of fixture execution and is used during Playwright discovery after environment configuration has loaded. It reads `TEST_ENV` at call time, defaults to DEV, and handles environment names case-insensitively. It does not initialize dotenv, Vault, or browser fixtures. Outer loops in `tests/data-driven-testing-example-cases.spec.ts` call it to register separate tests before fixture execution.
 
 Tests can access named datasets using standard object properties and keys.
 
@@ -203,15 +205,30 @@ environmentData.PRODUCTS[
 ]
 ```
 
-The same mechanism supports nested collections and permutations:
+The current datasets support discovery-time parameterization through native loops:
 
 ```typescript
-for (const groupName in environmentData.PERMUTATION_TESTS) {
-  for (const value of environmentData.PERMUTATION_TESTS[groupName]) {
-    console.log(value);
-  }
+for (const groupName in getEnvironmentData().PURCHASE_QUANTITIES) {
+  test(`${groupName}: add quantities to cart`, async ({ page, environmentData }) => {
+    // Navigate to the selected product and initialize the running total.
+    for (const quantity of environmentData.PURCHASE_QUANTITIES[groupName]) {
+      // Add this quantity to the same cart and accumulate the total.
+    }
+    // Validate the final cart quantity and calculated price.
+  });
+}
+
+for (const description in getEnvironmentData().PRODUCT_SEARCH_VARIATIONS) {
+  test(`${description}: search returns the expected product`, async ({ page, environmentData }) => {
+    const variation = environmentData.PRODUCT_SEARCH_VARIATIONS[description];
+    // Search with variation.search and validate the exact variation.expectedProduct.
+  });
 }
 ```
+
+The outer loops generate independent Playwright test identities, fixture lifetimes, results, and diagnostic artifacts. Each purchase group's inner loop intentionally performs dependent additions whose sum is the subject of that test. Each independent search permutation should instead be its own test, so one failing input does not ordinarily block others and a retry repeats only the failed case.
+
+Two additional examples deliberately put the search loop inside one test, first without and then with `test.step(description, ...)`. Both are discouraged for independent permutations: an error stops subsequent iterations, the state and test result remain shared, and retrying repeats the entire test. Named steps identify the failing variation more clearly but provide reporting structure rather than test isolation. These examples illustrate the trade-off without introducing a custom iteration engine.
 
 I prefer this straightforward approach because engineers can understand and work with the JSON structure without learning a proprietary data-access API.
 
@@ -257,7 +274,9 @@ The automatic, test-scoped `blockAds` fixture preserves advertising filters and 
 
 Five functional scenarios cover quantities, multiple products, removal, contact form upload, and login/logout. Environment data supplies the cart products/prices and account metadata. Contact Us uses scenario-owned form inputs. The login/logout case retrieves credentials from Vault.
 
-Both demonstrations are opt-in. `RUN_TDM_DEMO=1` enables the single nested-loop iteration test; `RUN_VAULT_DEMO=1` enables the single secret-presence test. The current demonstration permutations intentionally differ between environments so selection is visible in console output. Ordinary runs skip both demonstrations; the login/logout scenario still requires Vault.
+`tests/data-driven-testing-example-cases.spec.ts` runs without an opt-in flag and contains four patterns: purchase-group parameterization with dependent quantity iteration, independent search parameterization, an internal search loop, and an internal search loop with named reporting steps. The first two are recommended; the last two intentionally demonstrate failure blocking and shared-result limitations. With the current three purchase groups and three search variations, the spec registers eight tests per browser. Together with the five functional cases and one opt-in Vault case, each environment registers 14 tests per browser (42 across the configured browsers; three Vault skips by default).
+
+The superseded console-only iteration test is removed. `RUN_VAULT_DEMO=1` still enables the separate secret-presence demonstration. The normal login/logout case requires Vault independently of that flag. No additional fixtures, generators, or data-processing abstractions are introduced.
 
 Focused verification includes three mocked lifecycle scenarios with simulated time: cached-token reuse, authentication after expiration, and sanitized authentication/read errors. The existing environment-config and password-input checks remain separate. It uses the existing Playwright runner under `verification/`, with no added test framework or dependency. Live regression scenarios remain dependent on the application and local Vault.
 
@@ -281,7 +300,7 @@ Descriptive tags preserve test intent when actual entities change.
 
 Every input and expected value could be externalized.
 
-I rejected this because quantities, generic text, and scenario-specific decisions do not necessarily depend on the environment.
+I rejected this because quantities, generic text, and scenario-specific decisions do not necessarily depend on the environment. This does not prohibit environment-specific quantities when the testing requirement calls for them, as in the purchase demonstrations.
 
 Moving them into environment files would introduce unnecessary coupling and obscure test intent.
 

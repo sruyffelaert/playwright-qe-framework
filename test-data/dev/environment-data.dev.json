@@ -30,16 +30,16 @@
   },
   "PRODUCT_SEARCH_VARIATIONS": {
     "Exact Match": {
-      "search": "GRAPHIC DESIGN MEN T SHIRT - BLUE",
-      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+      "search": "soft stretch jeans",
+      "expectedProduct": "Soft Stretch Jeans"
     },
     "All Caps": {
-      "search": "GRAPHIC DESIGN MEN T SHIRT - BLUE",
-      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+      "search": "SOFT STRETCH JEANS",
+      "expectedProduct": "Soft Stretch Jeans"
     },
     "Partial Match": {
-      "search": "graphic design",
-      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+      "search": "soft stretch",
+      "expectedProduct": "Soft Stretch Jeans"
     }
   }
 }
