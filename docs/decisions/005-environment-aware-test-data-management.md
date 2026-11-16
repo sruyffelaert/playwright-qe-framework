@@ -233,15 +233,19 @@ const account = environmentData.ACCOUNTS['Registered account for login and logou
 const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
 ```
 
-For SIT, this resolves to `secret/sit/test-account` through Vault's KV v2 API. The username is used as the login email, and the password is passed to the POM. The expected display name comes from JSON. The case logs the user ID, but never the password. Application credentials are stored in Vault rather than JSON or `.env`.
+For SIT, this resolves to `secret/sit/test-account` through Vault's KV v2 API. The username is used as the login email, and the password is passed to the POM. The expected display name comes from JSON. The case does not log the username or password. Application credentials are stored in Vault rather than JSON or `.env`.
 
 The standalone `HashicorpVault` class uses `VAULT_ADDR`, `VAULT_USERNAME`, and `VAULT_PASSWORD` for the team's Userpass authentication. These secret-zero credentials are separate from the retrieved application credentials. The client uses native fetch and has no Playwright or dotenv dependency. The existing optional, worker-scoped `hashicorpVault` fixture creates and authenticates one instance when first requested; it does not initialize for tests that do not request it.
 
 The client caches Vault's token and its expiration time derived from the returned `lease_duration`. It checks expiration before secret reads, reuses a valid token until it expires, and performs a new Userpass login after expiration. TTL zero is treated as nonexpiring. Tokens are not renewed. Operations run sequentially within each worker. There are no percentage calculations, renewal thresholds, promise locks, lifecycle timers, or background tasks.
 
-Unsuccessful login or secret reads fail with sanitized operation and HTTP diagnostics, without response bodies, credentials, or tokens. If replacement login fails, the expired token is not used. A read-time 403 is reported rather than blindly retried because it can indicate insufficient policy or early revocation.
+Unsuccessful login or secret reads fail with sanitized operation and HTTP diagnostics, without response bodies, credentials, or tokens. If replacement login fails, the expired token is not used.
 
 Environment configuration, environment data, and Vault access remain independently selectable capabilities. Both optional fixtures use the environment configured by Playwright. The Vault client can also run independently when its caller supplies the environment variables.
+
+#### Known Limitations
+
+**Early token revocation:** If Vault revokes a token before its reported expiration, secret retrieval fails with the returned HTTP error. The library does not invalidate the cached token or automatically reauthenticate because an HTTP 403 may indicate insufficient permissions rather than token revocation. Subsequent requests may continue failing until the cached token expires or a new worker authenticates.
 
 ### 2.7 Current Fixtures and Demonstrations
 

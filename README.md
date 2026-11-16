@@ -59,11 +59,15 @@ const account = environmentData.ACCOUNTS['Registered account for login and logou
 const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
 ```
 
-With SIT and the current `vaultSecret` value, this reads `secret/sit/test-account` through `/v1/secret/data/sit/test-account`. The secret's `username` must contain the application's login email; `password` must contain its matching password. The expected logged-in display name comes from environment data. The login case logs the user ID, but never its password. Vault's authentication account is separate from the application account.
+With SIT and the current `vaultSecret` value, this reads `secret/sit/test-account` through `/v1/secret/data/sit/test-account`. The secret's `username` must contain the application's login email; `password` must contain its matching password. The expected logged-in display name comes from environment data. The login case does not log the username or password. Vault's authentication account is separate from the application account.
 
 For the separate `qe-vault-local` project, map its `QE_VAULT_PASSWORD` to this project's `VAULT_PASSWORD` and use its team Userpass username. Its default address is `http://127.0.0.1:8200`. No root token or local Vault server is included here. The team's Vault policy must allow reading the selected secret paths.
 
-Authentication and read errors do not include server response bodies, native connection details, credentials, or tokens. If obtaining a replacement token fails, the read fails without using the expired token. Secret-read errors are reported without blind retries: a 403 may represent an ACL denial or early token revocation. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login) and [KV v2 API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
+Authentication and read errors do not include server response bodies, native connection details, credentials, or tokens. If obtaining a replacement token fails, the read fails without using the expired token. See the [Userpass API](https://developer.hashicorp.com/vault/api-docs/auth/userpass#login) and [KV v2 API](https://developer.hashicorp.com/vault/api-docs/secret/kv/kv-v2#read-secret-version).
+
+### Known Limitations
+
+**Early token revocation:** If Vault revokes a token before its reported expiration, secret retrieval fails with the returned HTTP error. The library does not invalidate the cached token or automatically reauthenticate because an HTTP 403 may indicate insufficient permissions rather than token revocation. Subsequent requests may continue failing until the cached token expires or a new worker authenticates.
 
 ## Run functional scenarios
 
