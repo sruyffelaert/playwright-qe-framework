@@ -3,6 +3,11 @@ import { HashicorpVault } from '../libraries/hashicorp-vault';
 
 type JsonObject = Record<string, any>;
 
+export function getEnvironmentData() {
+  const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
+  return require(`../test-data/${env}/environment-data.${env}.json`);
+}
+
 type FrameworkFixtures = {
   blockAds: void;
   environmentData: JsonObject;
@@ -25,10 +30,7 @@ export const test = base.extend<FrameworkFixtures, FrameworkWorkerFixtures>({
   }, { auto: true }],
 
   environmentData: async ({}, use) => {
-    const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
-    const data = require(`../test-data/${env}/environment-data.${env}.json`);
-
-    await use(data);
+    await use(getEnvironmentData());
   },
 
   hashicorpVault: [async ({}, use) => {

@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { CartPage } from '../cart/cart-page';
+import { ProductsPage } from '../products/products-page';
 
 export class ProductDetailsPage {
   private readonly page: Page;
@@ -9,6 +10,7 @@ export class ProductDetailsPage {
   private readonly addToCartButton: Locator;
   private readonly continueShoppingButton: Locator;
   private readonly cartLink: Locator;
+  private readonly productsLink: Locator;
 
   constructor(page: Page, productName: string) {
     this.page = page;
@@ -20,6 +22,7 @@ export class ProductDetailsPage {
       name: 'Continue Shopping', exact: true,
     });
     this.cartLink = page.getByRole('link', { name: ' Cart', exact: true });
+    this.productsLink = page.getByRole('link', { name: ' Products', exact: true });
   }
 
   /** Verifies the page's distinct title is visible and correct. */
@@ -44,6 +47,13 @@ export class ProductDetailsPage {
     await expect(this.continueShoppingButton).toBeHidden();
     await this.assertLoaded();
     return this;
+  }
+
+  async navigateToProducts() {
+    await this.productsLink.click();
+    const destination = new ProductsPage(this.page);
+    await destination.assertLoaded();
+    return destination;
   }
 
   async navigateToCart() {

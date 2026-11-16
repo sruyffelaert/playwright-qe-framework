@@ -22,5 +22,24 @@
       "name": "Soft Stretch Jeans",
       "price": 799
     }
+  },
+  "PURCHASE_QUANTITIES": {
+    "Single-item purchases": [1],
+    "Small quantity purchases": [1, 2, 3],
+    "Large quantity purchases": [4, 9]
+  },
+  "PRODUCT_SEARCH_VARIATIONS": {
+    "Exact Match": {
+      "search": "GRAPHIC DESIGN MEN T SHIRT - BLUE",
+      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+    },
+    "All Caps": {
+      "search": "GRAPHIC DESIGN MEN T SHIRT - BLUE",
+      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+    },
+    "Partial Match": {
+      "search": "graphic design",
+      "expectedProduct": "GRAPHIC DESIGN MEN T SHIRT - BLUE"
+    }
   }
 }

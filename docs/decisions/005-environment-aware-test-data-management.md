@@ -50,8 +50,10 @@ The active environment is identified using `TEST_ENV`. Playwright loads the shar
 For example:
 
 ```typescript
-const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
-const data = require(`../test-data/${env}/environment-data.${env}.json`);
+export function getEnvironmentData() {
+  const env = (process.env.TEST_ENV ?? 'dev').toLowerCase();
+  return require(`../test-data/${env}/environment-data.${env}.json`);
+}
 ```
 
 DEV, SIT, and UAT each have an environment-data JSON file, an ignored `.env.<environment>` containing `BASE_URL`, and a corresponding lowercase Vault secret folder. All three application URL examples currently point to the public Automation Exercise site. Application URLs and Vault connection settings are configuration, not JSON test data. The shared `.env` holds Vault connectivity and team authentication; safe `.example` files document the settings. Missing or invalid `BASE_URL` fails configuration before tests start. The config loads dotenv; fixtures and the Vault library do not initialize it again.
@@ -187,7 +189,9 @@ I prefer this modular approach because not every application or test requires ma
 
 I want JSON data to remain accessible through ordinary JavaScript and TypeScript operations, without unnecessary transformation or custom iteration engines.
 
-Node.js loads the JSON structure directly into memory through `require()`, which also provides module caching within the process.
+The exported synchronous `getEnvironmentData()` function in `fixtures/fixtures.ts` centralizes selection and loading. The existing `environmentData` fixture calls it and passes its result directly to `use()`. Node.js loads the JSON structure through `require()`, which provides module caching within the process; the function adds no transformations or separate cache.
+
+The function is callable independently of fixture execution, including during future Playwright test discovery after environment configuration has loaded. It reads `TEST_ENV` at call time, defaults to DEV, and handles environment names case-insensitively. It does not initialize dotenv, Vault, or browser fixtures. Discovery-time loops or generated test cases are not implemented in this increment.
 
 Tests can access named datasets using standard object properties and keys.
 

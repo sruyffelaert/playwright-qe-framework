@@ -22,5 +22,24 @@
       "name": "Colour Blocked Shirt – Sky Blue",
       "price": 849
     }
+  },
+  "PURCHASE_QUANTITIES": {
+    "Single-item purchases": [1],
+    "Small quantity purchases": [4, 6, 8],
+    "Large quantity purchases": [10, 20]
+  },
+  "PRODUCT_SEARCH_VARIATIONS": {
+    "Exact Match": {
+      "search": "Rust Red Linen Saree",
+      "expectedProduct": "Rust Red Linen Saree"
+    },
+    "All Caps": {
+      "search": "RUST RED LINEN SAREE",
+      "expectedProduct": "Rust Red Linen Saree"
+    },
+    "Partial Match": {
+      "search": "rust red",
+      "expectedProduct": "Rust Red Linen Saree"
+    }
   }
 }

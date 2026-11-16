@@ -22,5 +22,24 @@
       "name": "Men Tshirt",
       "price": 400
     }
-  }
+  },
+  "PURCHASE_QUANTITIES": {
+    "Single-item purchases": [1],
+    "Small quantity purchases": [2, 3, 4],
+    "Large quantity purchases": [5, 10] 
+  },
+  "PRODUCT_SEARCH_VARIATIONS": {
+    "Exact Match": {
+      "search": "Blue Top",
+      "expectedProduct": "Blue Top"
+    },
+    "All Caps": {
+      "search": "BLUE TOP",
+      "expectedProduct": "Blue Top"
+    },
+    "Partial Match": {
+      "search": "blue t",
+      "expectedProduct": "Blue Top"
+    }
+}
 }
