@@ -1,7 +1,7 @@
 import { test } from '@fixtures/fixtures';
 import { HomePage } from '../pages/home/home-page';
 
-test('Login and log out verification', async ({ page, environmentData, hashicorpVault }) => {
+test('Login and log out verification', { tag: '@local-only' }, async ({ page, environmentData, hashicorpVault }) => {
   const account = environmentData.ACCOUNTS['Registered account for login and logout'];
   const { username, password } = await hashicorpVault.getSecret(account.vaultSecret);
 
