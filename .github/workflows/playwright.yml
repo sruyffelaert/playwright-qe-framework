@@ -18,7 +18,16 @@ jobs:
     - name: Run Playwright tests
       env:
         TEST_ENV: SIT
-      run: npx playwright test --project=chromium --workers=1 --retries=1 --grep-invert "@local-only"
+        PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+      run: npx playwright test --project=chromium --workers=1 --retries=1 --grep-invert "@local-only" --reporter=line,html,json
+    - name: Publish test summary
+      if: ${{ !cancelled() }}
+      run: |
+        if [ -f results.json ]; then
+          jq -r '.stats | "## Playwright Results\n| Result | Count |\n|---|---:|\n| Passed | \(.expected) |\n| Failed | \(.unexpected) |\n| Flaky | \(.flaky) |\n| Skipped | \(.skipped) |"' results.json >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "No test results generated." >> "$GITHUB_STEP_SUMMARY"
+        fi
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
